@@ -955,7 +955,7 @@ void instrument_coverage_init(void) {
 void instrument_coverage_start(uint64_t address) {
 
   if (instrument_coverage_filename == NULL) { return; }
-
+  //记录上一次的地址
   normal_coverage_last_start = address;
 
 }

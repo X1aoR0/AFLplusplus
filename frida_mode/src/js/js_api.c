@@ -13,6 +13,7 @@
 
 typedef uint8_t u8;
 
+//JS API文件
 extern void __afl_set_persistent_mode(u8 mode);
 
 __attribute__((visibility("default"))) void js_api_done() {

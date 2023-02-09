@@ -384,7 +384,7 @@ static void report_error_and_exit(int error) {
 
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output) {
-
+  printf("[*] afl-fuzz fsrv->cmplog_binary %s\n",fsrv->cmplog_binary);                      
   int   st_pipe[2], ctl_pipe[2];
   s32   status;
   s32   rlen;
@@ -597,12 +597,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     sigaction(SIGPIPE, &sa, NULL);
 
     struct rlimit r;
+    printf("[*] afl-fuzz fsrv->cmplog_binary %d\n",fsrv->cmplog_binary);
+    // if (!fsrv->cmplog_binary) {
+    //   //很奇怪，官方参数推荐是-c 0 ，但是0这里cmplog_binary就设置成0了，这里就会
+    //   //取消CMPLOG
+    //   unsetenv(CMPLOG_SHM_ENV_VAR);  // we do not want that in non-cmplog fsrv
 
-    if (!fsrv->cmplog_binary) {
-
-      unsetenv(CMPLOG_SHM_ENV_VAR);  // we do not want that in non-cmplog fsrv
-
-    }
+    // }
 
     /* Umpf. On OpenBSD, the default fd limit for root users is set to
        soft 128. Let's try to fix that... */

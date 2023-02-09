@@ -33,6 +33,7 @@
 # You must make sure that Unicorn Engine is not already installed before
 # running this script. If it is, please uninstall it first.
 
+exit 0
 UNICORNAFL_VERSION="$(cat ./UNICORNAFL_VERSION)"
 
 echo "================================================="

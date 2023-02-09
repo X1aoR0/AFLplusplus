@@ -1,7 +1,7 @@
 #include "util.h"
 
 gboolean util_verbose = FALSE;
-
+//读取env的工具类，只不过根据不同的读取结果的类型分成多个函数
 guint64 util_read_address(char *key, guint64 default_value) {
 
   char *value_str = getenv(key);

@@ -54,7 +54,7 @@ static void gum_afl_stalker_observer_init(GumAflStalkerObserver *self) {
   UNUSED_PARAMETER(self);
 
 }
-
+//stalker配置
 void stalker_config(void) {
 
   if (!gum_stalker_is_supported()) { FFATAL("Failed to initialize embedded"); }
@@ -69,7 +69,7 @@ void stalker_config(void) {
   observer = g_object_new(GUM_TYPE_AFL_STALKER_OBSERVER, NULL);
 
 }
-
+//排除stalker自己，不能跟踪自己么
 static gboolean stalker_exclude_self(const GumRangeDetails *details,
                                      gpointer               user_data) {
 
@@ -132,7 +132,7 @@ void stalker_init(void) {
   }
 
   gum_stalker_activate_experimental_unwind_support();
-
+//初始化stalker对象
 #if defined(__x86_64__) || defined(__i386__)
   stalker = g_object_new(GUM_TYPE_STALKER, "ic-entries", stalker_ic_entries,
                          "adjacent-blocks", stalker_adjacent_blocks, NULL);
@@ -144,7 +144,7 @@ void stalker_init(void) {
 #endif
 
   if (stalker == NULL) { FFATAL("Failed to initialize stalker"); }
-
+  //设置
   gum_stalker_set_trust_threshold(stalker, -1);
 
   /* *NEVER* stalk the stalker, only bad things will ever come of this! */
@@ -159,9 +159,10 @@ GumStalker *stalker_get(void) {
 
 }
 
-void stalker_start(void) {
-
+void stalker_start(void) {  
+  //获取transformor
   GumStalkerTransformer *transformer = instrument_get_transformer();
+  //这里follow_me就能看出来，只跟踪主线程
   gum_stalker_follow_me(stalker, transformer, NULL);
 
   gum_stalker_set_observer(stalker, GUM_STALKER_OBSERVER(observer));

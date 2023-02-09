@@ -59,7 +59,7 @@ void entry_on_fork(void) {
 }
 
 #endif
-
+//读取配置的entry_point
 void entry_config(void) {
 
   entry_point = util_read_address("AFL_ENTRYPOINT", 0);

@@ -28,7 +28,7 @@
 # The modifications reside in patches/*. The standalone QEMU binary
 # will be written to ../afl-qemu-trace.
 #
-
+exit 0
 QEMUAFL_VERSION="$(cat ./QEMUAFL_VERSION)"
 
 echo "================================================="

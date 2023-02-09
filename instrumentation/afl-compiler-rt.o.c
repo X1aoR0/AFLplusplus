@@ -279,15 +279,16 @@ static void __afl_map_shm_fuzz() {
 /* SHM setup. */
 
 static void __afl_map_shm(void) {
-
+  printf("afl-compiler: get CMPLOG_SHM_ENV_VAR id %s\n",getenv(CMPLOG_SHM_ENV_VAR));
+  printf("_afl_map_shm be called\n");
   if (__afl_already_initialized_shm) return;
   __afl_already_initialized_shm = 1;
 
   // if we are not running in afl ensure the map exists
   if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
-
+  //共享内存id
   char *id_str = getenv(SHM_ENV_VAR);
-
+  printf("afl-compiler: get SHM_ENV_VAR id %s\n",id_str);
   if (__afl_final_loc) {
 
     __afl_map_size = ++__afl_final_loc;  // as we count starting 0
@@ -447,7 +448,7 @@ static void __afl_map_shm(void) {
     const char    *shm_file_path = id_str;
     int            shm_fd = -1;
     unsigned char *shm_base = NULL;
-
+    //如果制定了shm_id，就打开
     /* create the shared memory segment as if it was a file */
     shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
     if (shm_fd == -1) {
@@ -504,7 +505,7 @@ static void __afl_map_shm(void) {
       }
 
     }
-
+    //这里还有shmat的打开方式。。。
     __afl_area_ptr = (u8 *)shmat(shm_id, (void *)__afl_map_addr, 0);
 
     /* Whooooops. */
@@ -611,9 +612,10 @@ static void __afl_map_shm(void) {
     }
 
   }
-
+  //cmplog共享内存id
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
-
+  printf("afl-compiler: get CMPLOG_SHM_ENV_VAR 's %s\n",CMPLOG_SHM_ENV_VAR);
+  printf("afl-compiler: get CMPLOG_SHM_ENV_VAR id %s\n",id_str);
   if (__afl_debug) {
 
     fprintf(stderr, "DEBUG: cmplog id_str %s\n",
@@ -633,7 +635,7 @@ static void __afl_map_shm(void) {
     const char     *shm_file_path = id_str;
     int             shm_fd = -1;
     struct cmp_map *shm_base = NULL;
-
+    //打开cmp_log共享内存
     /* create the shared memory segment as if it was a file */
     shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
     if (shm_fd == -1) {
@@ -657,12 +659,14 @@ static void __afl_map_shm(void) {
       exit(2);
 
     }
-
+    //赋值
     __afl_cmp_map = shm_base;
+    printf("afl_compiler-rt __afl_cmp_map %p\n",__afl_cmp_map);
 #else
     u32 shm_id = atoi(id_str);
 
     __afl_cmp_map = (struct cmp_map *)shmat(shm_id, NULL, 0);
+    printf("afl_compiler-rt __afl_cmp_map %p\n",__afl_cmp_map);
 #endif
 
     __afl_cmp_map_backup = __afl_cmp_map;

@@ -52,6 +52,7 @@ static gint cmplog_sort(gconstpointer a, gconstpointer b) {
 
 }
 
+//cmplog的ranges默认就是全部可读 空间
 static void cmplog_get_ranges(void) {
 
   FVERBOSE("CMPLOG - Collecting ranges");
@@ -62,15 +63,17 @@ static void cmplog_get_ranges(void) {
 
 }
 
+//cmplog配置，目前为空
 void cmplog_config(void) {
 
 }
 
+//cmplog的初始化
 void cmplog_init(void) {
 
   FOKF(cBLU "Instrumentation" cRST " - " cGRN "cmplog:" cYEL " [%c]",
        __afl_cmp_map == NULL ? ' ' : 'X');
-
+  //cmp_map是外部定的
   if (__afl_cmp_map == NULL) { return; }
 
   cmplog_get_ranges();
@@ -89,7 +92,7 @@ void cmplog_init(void) {
   page_size = sysconf(_SC_PAGE_SIZE);
   page_offset_mask = page_size - 1;
   page_mask = ~(page_offset_mask);
-
+  //创建hash表
   hash_yes = g_hash_table_new(g_direct_hash, g_direct_equal);
   if (hash_yes == NULL) {
 

@@ -102,6 +102,7 @@ __attribute__((hot)) static void instrument_increment_map(GumAddress edge) {
 
 }
 
+//基本块回调
 __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
                                                 gpointer       user_data) {
 
@@ -118,9 +119,9 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
     *instrument_previous_pc_addr = instrument_hash_zero;
 
   }
-
+  //计算edge值
   edge = current_pc ^ *instrument_previous_pc_addr;
-
+  //记录边覆盖率
   instrument_increment_map(edge);
 
   if (unlikely(instrument_tracing)) {
@@ -153,6 +154,8 @@ __attribute__((hot)) static void on_basic_block(GumCpuContext *context,
 
 }
 
+//基础的transformar
+//重点分析
 static void instrument_basic_block(GumStalkerIterator *iterator,
                                    GumStalkerOutput   *output,
                                    gpointer            user_data) {
@@ -163,11 +166,11 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
   gboolean       begin = TRUE;
   gboolean       excluded;
   block_ctx_t   *ctx = NULL;
-
+  //遍历当前基本块的指令
   while (gum_stalker_iterator_next(iterator, &instr)) {
 
     if (unlikely(begin)) { instrument_debug_start(instr->address, output); }
-
+    
     if (instr->address == entry_point) { entry_prologue(iterator, output); }
     if (instr->address == persistent_start) { persistent_prologue(output); }
     if (instr->address == persistent_ret) { persistent_epilogue(output); }
@@ -197,10 +200,11 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
      * our AFL_ENTRYPOINT, since it is not until then that we start the
      * fork-server and thus start executing in the child.
      */
+     //被排除的地址
     excluded = range_is_excluded(GUM_ADDRESS(instr->address));
-
+    //状态收集，就是收集各个指令的记录信息
     stats_collect(instr, begin);
-
+    //从这里就能看到begin是指基本块刚进来，下面就会设置成false，代表粒度是基本块
     if (unlikely(begin)) {
 
       instrument_debug_start(instr->address, output);
@@ -220,7 +224,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 #else
       prefetch_write(GSIZE_TO_POINTER(instr->address));
 #endif
-
+      //记录边覆盖率
       if (likely(!excluded)) {
 
         if (likely(instrument_optimize)) {
@@ -251,16 +255,17 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
       instrument_coverage_optimize_insn(instr, output);
 
     }
-
+    //地址在记录范围内
     if (likely(!excluded)) {
 
       asan_instrument(instr, iterator);
+      //cmp指令 插桩
       cmplog_instrument(instr, iterator);
 
     }
 
     instrument_cache(instr, output);
-
+    //看看是不是还有js的回调，有就调用
     if (js_stalker_callback(instr, begin, excluded, output)) {
 
       gum_stalker_iterator_keep(iterator);
@@ -279,6 +284,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
 
 }
 
+//插桩配置
 void instrument_config(void) {
 
   instrument_optimize = (getenv("AFL_FRIDA_INST_NO_OPTIMIZE") == NULL);
@@ -289,16 +295,19 @@ void instrument_config(void) {
   instrument_coverage_unstable_filename =
       (getenv("AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE"));
   instrument_coverage_insn = (getenv("AFL_FRIDA_INST_INSN") != NULL);
+  //File to write raw register contents at the start of each block. AFL_FRIDA_INST_TRACE.
   instrument_regs_filename = getenv("AFL_FRIDA_INST_REGS_FILE");
 
   instrument_debug_config();
   instrument_coverage_config();
   asan_config();
+  //这个刚好有个可能是我们需要的log
   cmplog_config();
   instrument_cache_config();
 
 }
 
+//插桩初始化
 void instrument_init(void) {
 
   if (__afl_map_size == MAP_SIZE) __afl_map_size = FRIDA_DEFAULT_MAP_SIZE;
@@ -343,12 +352,12 @@ void instrument_init(void) {
   }
 
   if (instrument_unique) { instrument_tracing = TRUE; }
-
+  //构造transformer
   transformer = gum_stalker_transformer_make_from_callback(
       instrument_basic_block, NULL, NULL);
 
   if (instrument_unique) { edges_notified = shm_create(__afl_map_size); }
-
+  //使用固定的hash_seed
   if (instrument_use_fixed_seed) {
 
     /*
@@ -356,7 +365,7 @@ void instrument_init(void) {
      * debugging.
      */
     instrument_hash_seed = instrument_fixed_seed;
-
+    //否则得到一个不同的hash_seed
   } else {
 
     /*
@@ -385,7 +394,7 @@ void instrument_init(void) {
        instrument_regs_filename == NULL ? " " : instrument_regs_filename);
 
   if (instrument_regs_filename != NULL) {
-
+    //指定了regs_file
     char *path =
         g_canonicalize_filename(instrument_regs_filename, g_get_current_dir());
 
@@ -401,6 +410,7 @@ void instrument_init(void) {
   }
 
   asan_init();
+  //初始化cmp_log
   cmplog_init();
   instrument_coverage_init();
   instrument_coverage_optimize_init();
@@ -416,6 +426,7 @@ GumStalkerTransformer *instrument_get_transformer(void) {
 
 }
 
+//初始化PREV_PC，开始都是设置成0
 void instrument_on_fork() {
 
   if (instrument_previous_pc_addr != NULL) {

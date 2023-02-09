@@ -163,6 +163,7 @@ static void cmplog_instrument_put_operand(cmplog_ctx_t *ctx,
 
 }
 
+//这是插桩 call指令？
 static void cmplog_instrument_call(const cs_insn      *instr,
                                    GumStalkerIterator *iterator) {
 
@@ -188,8 +189,12 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
 
   gsize address = ctx_read_reg(context, X86_REG_RIP);
 
+  //根据地址得到hash _key
   register uintptr_t k = instrument_get_offset_hash(GUM_ADDRESS(address));
-
+  plog("[*] cmplog success\n");
+  //到这里就能拿到地址跟size了
+  plog("[*] %p key{%d} : op1 -> %p ,op2 -> %p\n",address,k,operand1,operand2);
+  //初始化表项
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS)
     __afl_cmp_map->headers[k].hits = 0;
 
@@ -205,20 +210,23 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
     hits = __afl_cmp_map->headers[k].hits;
 
   }
-
+  //hits + 1
   __afl_cmp_map->headers[k].hits = hits + 1;
+  //最多就记录CMP_MAP_H个hit，记录到头了就翻转回来
   hits &= CMP_MAP_H - 1;
+  //同时记录操作数值
   __afl_cmp_map->log[k][hits].v0 = operand1;
   __afl_cmp_map->log[k][hits].v1 = operand2;
 
 }
 
+//
 static void cmplog_cmp_sub_callout(GumCpuContext *context, gpointer user_data) {
 
   cmplog_pair_ctx_t *ctx = (cmplog_pair_ctx_t *)user_data;
   gsize              operand1;
   gsize              operand2;
-
+  //得到cmp两个操作数的值
   if (!cmplog_get_operand_value(context, &ctx->operand1, &operand1)) { return; }
   if (!cmplog_get_operand_value(context, &ctx->operand2, &operand2)) { return; }
 
@@ -226,6 +234,7 @@ static void cmplog_cmp_sub_callout(GumCpuContext *context, gpointer user_data) {
 
 }
 
+//进一步的细节回调
 static void cmplog_instrument_cmp_sub_put_callout(GumStalkerIterator *iterator,
                                                   cs_x86_op          *operand1,
                                                   cs_x86_op *operand2) {
@@ -241,6 +250,8 @@ static void cmplog_instrument_cmp_sub_put_callout(GumStalkerIterator *iterator,
 
 }
 
+
+//cmp stub插桩回调
 static void cmplog_instrument_cmp_sub(const cs_insn      *instr,
                                       GumStalkerIterator *iterator) {
 
@@ -249,7 +260,7 @@ static void cmplog_instrument_cmp_sub(const cs_insn      *instr,
   cs_x86_op *operand2;
 
   switch (instr->id) {
-
+    //插桩下面这些指令
     case X86_INS_CMP:
     case X86_INS_SUB:
     case X86_INS_SCASB:
@@ -266,7 +277,7 @@ static void cmplog_instrument_cmp_sub(const cs_insn      *instr,
       return;
 
   }
-
+  //操作数只能是两个
   if (x86.op_count != 2) return;
 
   operand1 = &x86.operands[0];
@@ -277,13 +288,14 @@ static void cmplog_instrument_cmp_sub(const cs_insn      *instr,
 
   /* Both operands are the same size */
   if (operand1->size == 1) { return; }
-
+  plog("");
   cmplog_instrument_cmp_sub_put_callout(iterator, operand1, operand2);
 
 }
 
+//重点分析，cmp插桩
 void cmplog_instrument(const cs_insn *instr, GumStalkerIterator *iterator) {
-
+  plog("[*] __afl_cmp_map 's addr %p\n",__afl_cmp_map);
   if (__afl_cmp_map == NULL) return;
 
   cmplog_instrument_call(instr, iterator);

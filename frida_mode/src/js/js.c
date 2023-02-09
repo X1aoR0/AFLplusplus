@@ -26,6 +26,7 @@ static void js_msg(const gchar *message, GBytes *data, gpointer user_data) {
 
 }
 
+//读取Js脚本信息
 void js_config(void) {
 
   js_script = getenv("AFL_FRIDA_JS_SCRIPT");
@@ -107,6 +108,7 @@ static void create_cb(GObject *source_object, GAsyncResult *result,
 
 }
 
+//运行JS脚本
 void js_start(void) {
 
   gchar *source = js_get_script();

@@ -59,6 +59,21 @@ typedef int (*main_fn_t)(int argc, char **argv, char **envp);
 
 static main_fn_t main_fn = NULL;
 
+
+FILE* out_log_fp = NULL; 
+// Either log to stdout or to syslog depending on whether we are run in AFL or standalone mode
+void plog(const char *format, ...) {
+    //static FILE* fp = open("fuzz.log","w");
+    va_list args;
+    va_start(args, format);
+
+    vfprintf(out_log_fp,format, args);
+    fflush(out_log_fp);
+
+    va_end(args);
+    
+}
+
 #ifdef __APPLE__
 static void on_main_os(int argc, char **argv, char **envp) {
 
@@ -198,7 +213,7 @@ static void afl_print_env(void) {
 }
 
 __attribute__((visibility("default"))) void afl_frida_start(void) {
-
+  out_log_fp = fopen("cmp.log","a+");
   FOKF(cRED "**********************");
   FOKF(cRED "* " cYEL "******************" cRED " *");
   FOKF(cRED "* " cYEL "* " cGRN "**************" cYEL " *" cRED " *");
@@ -210,9 +225,13 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
   afl_print_env();
 
   /* Configure */
+  //入口点配置
   entry_config();
+  //插桩配置
   instrument_config();
+  //JS脚本配置
   js_config();
+  //lib配置
   lib_config();
   module_config();
   output_config();
@@ -220,9 +239,10 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
   prefetch_config();
   ranges_config();
   seccomp_config();
+  //读取stalker配置
   stalker_config();
   stats_config();
-
+  //运行JS脚本
   js_start();
 
   /* Initialize */
@@ -236,12 +256,15 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
   persistent_init();
   prefetch_init();
   seccomp_init();
+  //stalker初始化
   stalker_init();
   ranges_init();
   stats_init();
 
   /* Start */
+  //先开stalker
   stalker_start();
+  //再开始调用entry
   entry_start();
 
 }
@@ -254,14 +277,16 @@ static int on_main(int argc, char **argv, char **envp) {
 
   intercept_unhook_self();
 
-  afl_frida_start();
+  afl_frida_start( );
 
   if (js_main_hook != NULL) {
 
     ret = js_main_hook(argc, argv, envp);
 
   } else {
-
+    //打印main的地址
+    plog("[*] main addr : %p\n",main_fn);
+    //调用main函数
     ret = main_fn(argc, argv, envp);
 
   }
@@ -325,6 +350,7 @@ static int on_libc_start_main(int (*main)(int, char **, char **), int argc,
 
 }
 
+//截获main函数的地址，方便我们开启stalker后再调用
 static void intercept_main(void) {
 
   intercept_hook(__libc_start_main, on_libc_start_main, NULL);

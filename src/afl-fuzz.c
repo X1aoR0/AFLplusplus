@@ -28,6 +28,30 @@
 #include "common.h"
 #include <limits.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <errno.h>
+#include <signal.h>
+#include <dirent.h>
+#include <ctype.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <dlfcn.h>
+#include <sched.h>
+#include <semaphore.h>
+
+#include <sys/wait.h>
+#include <sys/time.h>
+#include <sys/shm.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/resource.h>
+#include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <sys/file.h>
 #ifndef USEMMAP
   #include <sys/mman.h>
   #include <sys/stat.h>
@@ -44,6 +68,40 @@
 #ifdef PROFILING
 extern u64 time_spent_working;
 #endif
+
+#include "external.h"
+
+static u8 *shared_mem_ptr;         /* SHM with external fuzzer         */
+static sem_t *ping_sem, *pong_sem; /* Semaphores with external fuzzer  */
+
+/* Execution status fault codes */
+
+enum
+{
+    /* 00 */ FAULT_NONE,
+    /* 01 */ FAULT_TMOUT,
+    /* 02 */ FAULT_CRASH,
+    /* 03 */ FAULT_ERROR,
+    /* 04 */ FAULT_NOINST,
+    /* 05 */ FAULT_NOBITS
+};
+
+u8 fault_save; /* Saves fault state after a run    */
+
+
+/* Un-map the shared memory and unlink the shared memory and semaphore files
+   before exiting.  */
+
+void close_external()
+{
+    munmap(shared_mem_ptr, SHM_SIZE);
+
+    // Unlink shared memory and smeaphores
+    shm_unlink(SHARED_MEM_NAME);
+    sem_unlink(SEM_PING_SIGNAL_NAME);
+    sem_unlink(SEM_PONG_SIGNAL_NAME);
+}
+
 
 static void at_exit() {
 
@@ -495,6 +553,54 @@ fail:
 
   #endif
 
+/* Inits 2 semaphores to talk with the external fuzzer + a shm region to
+   exchange PING and PONG messages. */
+
+int init_external(afl_state_t *afl)
+{
+    int sval = 0;
+    int fd_shm = -1;
+
+    // Unlink shared memory and smeaphores
+    shm_unlink(SHARED_MEM_NAME);
+    sem_unlink(SEM_PING_SIGNAL_NAME);
+    sem_unlink(SEM_PONG_SIGNAL_NAME);
+
+    // Get shared memory
+    if ((fd_shm = shm_open(SHARED_MEM_NAME, O_RDWR | O_CREAT, 0660)) == -1)
+        FATAL("Could not open shm: %s", SHARED_MEM_NAME);
+
+    if (ftruncate(fd_shm, SHM_SIZE) == -1)
+        FATAL("Could not ftruncate shm");
+
+    if ((shared_mem_ptr = mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0)) == MAP_FAILED)
+        FATAL("Could not mmap shm 1");
+
+    // Initialize the shared memory
+    memset(shared_mem_ptr, 0, SHM_SIZE);
+
+    // signal semaphore, indicating that a ping message is available
+    if ((ping_sem = sem_open(SEM_PING_SIGNAL_NAME, O_CREAT, 0660, 0)) == SEM_FAILED)
+        FATAL("Could not create semaphore %s", SEM_PING_SIGNAL_NAME);
+
+    // signal semaphore, indicating that a pong message is available
+    if ((pong_sem = sem_open(SEM_PONG_SIGNAL_NAME, O_CREAT, 0660, 0)) == SEM_FAILED)
+        FATAL("Could not create semaphore %s", SEM_PONG_SIGNAL_NAME);
+
+    // Wait until external fuzzer joined
+    for (; !sval && !afl->stop_soon; usleep(100000))
+    {
+        if (sem_getvalue(ping_sem, &sval) == -1)
+            FATAL("Failed to wait on ping semaphore");
+    }
+
+    if (afl->stop_soon)
+        return 0;
+
+    return 1;
+}
+
+
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
@@ -552,7 +658,7 @@ int main(int argc, char **argv_orig, char **envp) {
   while (
       (opt = getopt(
            argc, argv,
-           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:S:t:T:UV:WXx:YZ")) >
+           "+Ab:B:c:CdDe:E:hi:I:f:F:g:G:l:L:m:M:nNOo:p:RQs:r:S:t:T:UV:WXx:YZ")) >
       0) {
 
     switch (opt) {
@@ -586,11 +692,12 @@ int main(int argc, char **argv_orig, char **envp) {
         break;
 
       }
-
+      //开启cmp_log
       case 'c': {
 
         afl->shm.cmplog_mode = 1;
         afl->cmplog_binary = ck_strdup(optarg);
+        printf("[*] afl-fuzz afl->cmplog_binary %s\n",optarg);
         break;
 
       }
@@ -1277,6 +1384,15 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
       } break;
+      //add -r external name
+      case 'r':
+      {
+          SEM_PING_SIGNAL_NAME = alloc_printf("%s%s", SEM_PING_SIGNAL_NAME_HEAD, optarg);
+          SEM_PONG_SIGNAL_NAME = alloc_printf("%s%s", SEM_PONG_SIGNAL_NAME_HEAD, optarg);
+          SHARED_MEM_NAME = alloc_printf("%s%s", SHARED_MEM_NAME_HEAD, optarg);
+      }
+
+      break;
 
       case 'h':
         show_help++;
@@ -2071,7 +2187,7 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
   }
-
+  printf("afl->cmplog_binary :%s\n",afl->cmplog_binary);
   if (afl->cmplog_binary) {
 
     ACTF("Spawning cmplog forkserver");
@@ -2081,6 +2197,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.cs_mode = afl->fsrv.cs_mode;
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
+    //这里继承的是这个cmplog_binary
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
@@ -2297,8 +2414,169 @@ int main(int argc, char **argv_orig, char **envp) {
   setvbuf(afl->introspection_file, NULL, _IONBF, 0);
   OKF("Writing mutation introspection to '%s'", ifn);
   #endif
+  
+
+  //add: 配置共享内存
+  ACTF("Waiting for external fuzzer to join...");
+  if (init_external(afl)) // 设置与的py共享内存SHARED_MEM_NAME
+  {
+      OKF("External fuzzer joined");
+  }
+
+  //新主循环
+
+  //进入fuzz循环
+    while (1)
+    {
+        printf(".");
+        fflush(stdout);
+
+        // Wait until ping is ready from client with input for us
+        if (sem_wait(ping_sem) == -1)
+            FATAL("Failed to wait on ping semaphore");
+
+        if (afl->stop_soon)
+            break;
+
+        // Decoding PING message
+        PING_MSG_HDR *ping_msg_hdr = (PING_MSG_HDR *)shared_mem_ptr;
+        u8 *input = (u8 *)&shared_mem_ptr[sizeof(PING_MSG_HDR)];
+
+        PONG_MSG* pong_msg = malloc(sizeof(PONG_MSG));
+        memset(pong_msg,0,sizeof(PONG_MSG));
+        // Sanity check
+        if (ping_msg_hdr->inputsize > MAX_INPUT_SIZE)
+        {
+            FATAL("Overflow in received ping message");
+        }
+        // FILE* input_seed = fopen("input_seed.png","wb");
+        // fwrite(input,1,ping_msg_hdr->inputsize,input_seed);
+        // fclose(input_seed);
+        // //exit(0);
+
+        // u8 *buffer;
+        // FILE* fp =  fopen("input_seed.png","rb");  
+        // fseek(fp, 0, SEEK_END); // 移动文件指针到文件末尾
+        // int fileSize = ftell(fp); // 获取文件大小
+        // rewind(fp); // 移动文件指针回文件开头
+        // buffer = (u8*)malloc(fileSize); // 为读取数据申请内存
+        // fread(buffer, 1, fileSize, fp); // 读取整个文件到 buffer 中
+        // fclose(fp);
+
+        //test 
+        // common_fuzz_stuff(afl,buffer,fileSize);
+        //write out cov
+        // FILE* cov_fp = fopen("cov_result.bin.testforkserver2","wb");
+        // fwrite(afl->fsrv.trace_bits,1,map_size,cov_fp);
+        // fclose(cov_fp);
+
+        //循环中的fuzz启动
+        common_fuzz_stuff(afl, (u8 *)input, ping_msg_hdr->inputsize); // 将input写入文件并以其为参数运行目标程序
+          //write out cov
+        // cov_fp = fopen("cov_result.bin.testforkserver3","wb");
+        // fwrite(afl->fsrv.trace_bits,1,map_size,cov_fp);
+        // fclose(cov_fp);
+        // exit(0);
+        /*
+      Computes returned status
+        00  FAULT_NONE,
+        01  FAULT_TMOUT,
+        02  FAULT_CRASH,
+        03  FAULT_ERROR,
+        04  FAULT_NOINST,
+        05  FAULT_NOBITS
+    */
+        s32 status = 0;
+        switch (fault_save)
+        {
+        case FAULT_NONE:
+            break;
+
+        case FAULT_CRASH:
+            status |= STATUS_CRASHED;
+            break;
+        case FAULT_TMOUT:
+            status |= STATUS_HANGED;
+            break;
+
+        default:
+            status |= STATUS_ERROR;
+            break;
+        }
+
+        // Craft a pong response
+        pong_msg->msgid = ping_msg_hdr->msgid;
+        pong_msg->status = status;
+        printf(" afl->shm.cmp_map 'ss addr %p\n", afl->shm.cmp_map);
+        // 获取afl运行结果
+        memcpy(pong_msg->trace_bits, afl->fsrv.trace_bits, MAP_SIZE);
+        printf(" CMP_MAP_SIZE 's size %d\n", CMP_MAP_SIZE);
+        memcpy(pong_msg->cmp_map, afl->shm.cmp_map, CMP_MAP_SIZE);
+        // memcpy(&pong_msg.trace_bits[0], trace_bits, MAP_SIZE);
+        // u32 i = 0;
+        // u32 j = 0;
+        fflush(stdout);
+        // memset(&(pong_msg.trace_bits), 0, 3 * MAP_SIZE);
+
+        // for (i = 0; i < MAP_SIZE; i++) // 1 << 16
+        // {
+        //     if (trace_bits[i] != 0)
+        //     {
+        //         pong_msg.trace_bits[3 * j + 0] = (u8)(i % (1 << 8)); // prev
+        //         pong_msg.trace_bits[3 * j + 1] = (u8)(i / (1 << 8)); // cur
+        //         pong_msg.trace_bits[3 * j + 2] = trace_bits[i];
+        //         j++;
+        //     }
+        // }
+
+        // copies to shared_mem
+        memset(shared_mem_ptr, 0, SHM_SIZE);
+        memcpy(shared_mem_ptr, pong_msg, sizeof(PONG_MSG));
+
+        // Tell client that there is a buffer to read
+        if (sem_post(pong_sem) == -1)
+            FATAL("Failed to release pong semaphore");
+    }
+
+  stop_fuzzing:
+    close_external();
+
+    SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
+        afl->stop_soon == 2 ? "programmatically" : "by user");
+
+    ck_free(afl->fsrv.target_path);
+    ck_free(afl->fsrv.out_file);
+    alloc_report();
+
+    OKF("We're done here. Have a nice day!\n");
+
+    exit(0);
+
+  //主循环的开始
+  u8 *buffer;
+  FILE* fp =  fopen("test_in.png","rb");  
+  fseek(fp, 0, SEEK_END); // 移动文件指针到文件末尾
+  int fileSize = ftell(fp); // 获取文件大小
+  rewind(fp); // 移动文件指针回文件开头
+  buffer = (u8*)malloc(fileSize); // 为读取数据申请内存
+  fread(buffer, 1, fileSize, fp); // 读取整个文件到 buffer 中
+  fclose(fp);
+
+  //test 
+  common_fuzz_stuff(afl,buffer,fileSize);
+
+  //write out cov
+  FILE* cov_fp = fopen("cov_result.bin.test.forkserver11","wb");
+  fwrite(afl->fsrv.trace_bits,1,map_size,cov_fp);
+  fclose(cov_fp);
+  exit(0);
 
   while (likely(!afl->stop_soon)) {
+
+
+    //test fuzz_common_stuff
+    
+    
 
     cull_queue(afl);
 
@@ -2542,7 +2820,7 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->queue_cur = afl->queue_buf[afl->current_entry];
 
       }
-
+      //执行一次fuzz
       skipped_fuzz = fuzz_one(afl);
   #ifdef INTROSPECTION
       ++afl->queue_cur->stats_selected;
@@ -2637,7 +2915,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-stop_fuzzing:
+stop_fuzzing_ori:
 
   afl->force_ui_update = 1;  // ensure the screen is reprinted
   afl->stop_soon = 1;        // ensure everything is written

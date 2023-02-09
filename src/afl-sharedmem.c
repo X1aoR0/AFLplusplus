@@ -139,7 +139,7 @@ void afl_shm_deinit(sharedmem_t *shm) {
 /* Configure shared memory.
    Returns a pointer to shm->map for ease of use.
 */
-
+//配置共享内存
 u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
                  unsigned char non_instrumented_mode) {
 
@@ -226,7 +226,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   if (!non_instrumented_mode) setenv(SHM_ENV_VAR, shm->g_shm_file_path, 1);
 
   if (shm->map == (void *)-1 || !shm->map) PFATAL("mmap() failed");
-
+  //是否开启cmplpg
   if (shm->cmplog_mode) {
 
     snprintf(shm->cmplog_g_shm_file_path, L_tmpnam, "/afl_cmplog_%d_%ld",
@@ -272,6 +272,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   }
 
 #else
+  //不用文件的情况下，用shmget创建共享内存
   u8 *shm_str;
 
   // for qemu+unicorn we have to increase by 8 to account for potential
@@ -286,10 +287,10 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   }
 
   if (shm->cmplog_mode) {
-
+    printf("cmplog have set,begin call shmget\n");
     shm->cmplog_shm_id = shmget(IPC_PRIVATE, sizeof(struct cmp_map),
                                 IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
-
+    printf("shmget ok, shm_id %d\n",shm->cmplog_shm_id);
     if (shm->cmplog_shm_id < 0) {
 
       shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
@@ -309,17 +310,17 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
        with better auto-detection later on, perhaps? */
 
     setenv(SHM_ENV_VAR, shm_str, 1);
-
+    printf("afl-fuzz: set env SHM_ENV_VAR %s\n",shm_str);
     ck_free(shm_str);
 
   }
 
   if (shm->cmplog_mode && !non_instrumented_mode) {
-
+    printf("begin set cmplog env\n");
     shm_str = alloc_printf("%d", shm->cmplog_shm_id);
-
+    //设置cmplog的环境变量
     setenv(CMPLOG_SHM_ENV_VAR, shm_str, 1);
-
+    printf("afl-fuzz: set env CMPLOG_SHM_ENV_VAR %s\n",shm_str);
     ck_free(shm_str);
 
   }

@@ -1023,6 +1023,7 @@ abort_trimming:
 
 }
 
+extern u8 fault_save;
 /* Write a modified test case, run program, process results. Handle
    error conditions, returning 1 if it's time to bail out. This is
    a helper function for fuzz_one(). */
@@ -1039,7 +1040,8 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   }
 
   fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-
+  //保存fault原因
+  fault_save = fault;
   if (afl->stop_soon) { return 1; }
 
   if (fault == FSRV_RUN_TMOUT) {
@@ -1067,17 +1069,17 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
     return 1;
 
   }
+  //对于我们只运行程序来说，这一步应该是不需要的
+  // /* This handles FAULT_ERROR for us: */
 
-  /* This handles FAULT_ERROR for us: */
+  // afl->queued_discovered += save_if_interesting(afl, out_buf, len, fault);
 
-  afl->queued_discovered += save_if_interesting(afl, out_buf, len, fault);
+  // if (!(afl->stage_cur % afl->stats_update_freq) ||
+  //     afl->stage_cur + 1 == afl->stage_max) {
 
-  if (!(afl->stage_cur % afl->stats_update_freq) ||
-      afl->stage_cur + 1 == afl->stage_max) {
+  //   show_stats(afl);
 
-    show_stats(afl);
-
-  }
+  // }
 
   return 0;
 
