@@ -318,11 +318,18 @@ static int stricmp(char const *a, char const *b) {
   }
 
 }
+afl_state_t * global_afl = 0;
+void before_exit_to_save_stats() {
+    ACTF("[debug 1] exit come on.");
+    global_afl->force_ui_update = 1;
+    show_stats_on_exit(global_afl);
+    
+}
 
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
-
+  atexit(before_exit_to_save_stats);
   s32 opt, i, auto_sync = 0 /*, user_set_cache = 0*/;
   u64 prev_queued = 0;
   u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0,
@@ -349,8 +356,9 @@ int main(int argc, char **argv_orig, char **envp) {
   #endif
 
   char **argv = argv_cpy_dup(argc, argv_orig);
-
+  
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
+  global_afl = afl;
   if (!afl) { FATAL("Could not create afl state"); }
 
   if (get_afl_env("AFL_DEBUG")) { debug = afl->debug = 1; }
@@ -1777,7 +1785,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   memset(afl->virgin_tmout, 255, map_size);
   memset(afl->virgin_crash, 255, map_size);
-
+  //尝试校验输入seeds
   perform_dry_run(afl);
 
   if (afl->q_testcase_max_cache_entries) {
@@ -1826,9 +1834,9 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   show_init_stats(afl);
-
+  //这上面打印OK，
   if (unlikely(afl->old_seed_selection)) seek_to = find_start_position(afl);
-
+  ACTF("[debug 1] mainfuzz : queued_paths1 %d.", afl->queued_paths);
   afl->start_time = get_cur_time();
   if (afl->in_place_resume || afl->afl_env.afl_autoresume) load_stats_file(afl);
   write_stats_file(afl, 0, 0, 0, 0);
@@ -1868,9 +1876,9 @@ int main(int argc, char **argv_orig, char **envp) {
   #endif
 
   while (likely(!afl->stop_soon)) {
-
+    ACTF("[debug 1] mainfuzz : queued_paths1.1 %d.", afl->queued_paths);
     cull_queue(afl);
-
+    ACTF("[debug 1] mainfuzz : queued_paths2 %d.", afl->queued_paths);
     if (unlikely((!afl->old_seed_selection &&
                   runs_in_current_cycle > afl->queued_paths) ||
                  (afl->old_seed_selection && !afl->queue_cur))) {
@@ -1882,7 +1890,7 @@ int main(int argc, char **argv_orig, char **envp) {
         sync_fuzzers(afl);
 
       }
-
+      //遍历了多少轮了queue了
       ++afl->queue_cycle;
       runs_in_current_cycle = (u32)-1;
       afl->cur_skipped_paths = 0;
@@ -1920,7 +1928,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       /* If we had a full queue cycle with no new finds, try
          recombination strategies next. */
-
+      ACTF("[debug 1] mainfuzz : queued_paths3 %d.", afl->queued_paths);
       if (unlikely(afl->queued_paths == prev_queued &&
                    (get_cur_time() - afl->start_time) >= 3600)) {
 
@@ -2002,7 +2010,7 @@ int main(int argc, char **argv_orig, char **envp) {
               afl->queue_cycle, afl->cycles_wo_finds, afl->expand_havoc,
               afl->queued_paths);
   #endif
-
+      ACTF("[debug 1] mainfuzz : queued_paths4 %d.", afl->queued_paths);
       if (afl->cycle_schedules) {
 
         /* we cannot mix non-AFLfast schedules with others */
@@ -2051,7 +2059,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
       }
-
+      ACTF("[debug 1] mainfuzz : queued_paths5 %d.", afl->queued_paths);
       prev_queued = afl->queued_paths;
 
     }
@@ -2074,9 +2082,13 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->queue_cur = afl->queue_buf[afl->current_entry];
 
       }
-
+      //这里应该是重点，执行一次fuzz
+      ACTF("[debug 1] main_fuzz:afl->queued_paths %d.",afl->queued_paths);
+      ACTF("[debug 1] main_fuzz:afl->current_entry %d.",afl->current_entry);
+      ACTF("[debug 1] main_fuzz:current seed name:%s , len:%d.",afl->queue_cur->fname,afl->queue_cur->len);
       skipped_fuzz = fuzz_one(afl);
-
+      //
+      ACTF("[debug 1] main_fuzz:fuzz_one.");
       if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
 
       if (unlikely(afl->old_seed_selection)) {
@@ -2090,7 +2102,7 @@ int main(int argc, char **argv_orig, char **envp) {
           afl->queue_cur = NULL;
         else
           afl->queue_cur = afl->queue_buf[afl->current_entry];
-
+      ACTF("[debug 1] mainfuzz : queued_paths6 %d.", afl->queued_paths);
       }
 
     } while (skipped_fuzz && afl->queue_cur && !afl->stop_soon);
@@ -2136,8 +2148,9 @@ int main(int argc, char **argv_orig, char **envp) {
   save_auto(afl);
 
 stop_fuzzing:
-
+  ACTF("[debug 1] stop_fuzzing come on.");
   afl->force_ui_update = 1;  // ensure the screen is reprinted
+  //为了调试卡顿需要
   show_stats(afl);           // print the screen one last time
 
   SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,

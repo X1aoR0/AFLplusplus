@@ -643,7 +643,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
    all fuzzing steps. */
 
 void cull_queue(afl_state_t *afl) {
-
+  ACTF("[debug 1] cull_queue begin.");
   if (likely(!afl->score_changed || afl->non_instrumented_mode)) { return; }
 
   u32 len = (afl->fsrv.map_size >> 3);
@@ -653,10 +653,10 @@ void cull_queue(afl_state_t *afl) {
   afl->score_changed = 0;
 
   memset(temp_v, 255, len);
-
+  //先清空pending_favored和favored
   afl->queued_favored = 0;
   afl->pending_favored = 0;
-
+  ACTF("[debug 1] cull_queue:afl->queued_paths %d.",afl->queued_paths);
   for (i = 0; i < afl->queued_paths; i++) {
 
     afl->queue_buf[i]->favored = 0;
@@ -685,13 +685,14 @@ void cull_queue(afl_state_t *afl) {
       }
 
       if (!afl->top_rated[i]->favored) {
-
+        //这里应该算是设置了favored。。
         afl->top_rated[i]->favored = 1;
         ++afl->queued_favored;
-
+        
         if (afl->top_rated[i]->fuzz_level == 0 ||
             !afl->top_rated[i]->was_fuzzed) {
-
+          //肯定是这里调用的+1
+          ACTF("[debug 1] Found favored seed ,name: %s,len: %d .", afl->top_rated[i]->fname,afl->top_rated[i]->len);
           ++afl->pending_favored;
 
         }

@@ -40,7 +40,7 @@ u64 time_spent_working = 0;
 
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
-
+//让Forkserver启动目标程序
 fsrv_run_result_t __attribute__((hot))
 fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 
@@ -72,10 +72,11 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 /* Write modified data to file for testing. If afl->fsrv.out_file is set, the
    old file is unlinked and a new one is created. Otherwise, afl->fsrv.out_fd is
    rewound and truncated. */
-
+//上层write_testcases，直接打印这里就行
 void __attribute__((hot))
 write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
+  ACTF("[debug 1] write_to_cases len %d", len);
 #ifdef _AFL_DOCUMENT_MUTATIONS
   s32  doc_fd;
   char fn[PATH_MAX];
@@ -93,7 +94,7 @@ write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
   }
 
 #endif
-
+  //自定义变异器，不考虑
   if (unlikely(afl->custom_mutators_count)) {
 
     ssize_t new_size = len;
@@ -130,6 +131,7 @@ write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
     }
 
   } else {
+    //这里是默认路径
 
     /* boring uncustom. */
     afl_fsrv_write_to_testcase(&afl->fsrv, mem, len);
@@ -361,15 +363,15 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   }
 
   start_us = get_cur_time_us();
-
+  //calibrate_case 8次，确保输入是没问题的
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
     u64 cksum;
-
+    //写入testcases
     write_to_testcase(afl, use_mem, q->len);
 
     fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
-
+    ACTF("[debug 1] calibrate_case: fuzz_run_target.");
     /* afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
        we want to bail out quickly. */
 
@@ -498,7 +500,10 @@ abort_calibration:
   afl->stage_cur = old_sc;
   afl->stage_max = old_sm;
 
-  if (!first_run) { show_stats(afl); }
+  if (!first_run) { 
+    //调试需要
+    //show_stats(afl); 
+    }
 
   return fault;
 
@@ -664,7 +669,7 @@ void sync_fuzzers(afl_state_t *afl) {
         write_to_testcase(afl, mem, st.st_size);
 
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-
+        ACTF("[debug 1] sync_fuzzers: fuzz_run_target.");
         if (afl->stop_soon) { goto close_sync; }
 
         afl->syncing_party = sd_ent->d_name;
@@ -795,7 +800,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
 
       fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-
+      ACTF("[debug 1] trim_case: fuzz_run_target.");
       if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
 
       /* Note that we don't keep track of crashes or hangs here; maybe TODO?
@@ -838,7 +843,10 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
       /* Since this can be slow, update the screen every now and then. */
 
-      if (!(trim_exec++ % afl->stats_update_freq)) { show_stats(afl); }
+      if (!(trim_exec++ % afl->stats_update_freq)) { 
+        //调试需要
+        //show_stats(afl);
+        }
       ++afl->stage_cur;
 
     }
@@ -907,7 +915,7 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   write_to_testcase(afl, out_buf, len);
 
   fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-
+  ACTF("[debug 1] common_fuzz_stuff: fuzz_run_target.");
   if (afl->stop_soon) { return 1; }
 
   if (fault == FSRV_RUN_TMOUT) {
@@ -942,8 +950,8 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   if (!(afl->stage_cur % afl->stats_update_freq) ||
       afl->stage_cur + 1 == afl->stage_max) {
-
-    show_stats(afl);
+    //为了调试卡顿需要
+    //show_stats(afl);
 
   }
 

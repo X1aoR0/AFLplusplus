@@ -1078,6 +1078,7 @@ void write_setup_file(afl_state_t *, u32, char **);
 void write_stats_file(afl_state_t *, u32, double, double, double);
 void maybe_update_plot_file(afl_state_t *, u32, double, double);
 void show_stats(afl_state_t *);
+void show_stats_on_exit(afl_state_t *afl);
 void show_init_stats(afl_state_t *);
 
 /* StatsD */

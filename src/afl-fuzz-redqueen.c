@@ -2649,7 +2649,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     if (afl->fsrv.total_execs - execs > screen_update) {
 
       execs = afl->fsrv.total_execs;
-      show_stats(afl);
+      //调试需要
+      //show_stats(afl);
 
     }
 

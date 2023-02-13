@@ -597,35 +597,36 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   /* Wait for the fork server to come up, but don't wait too long. */
 
   rlen = 0;
+  //等着forkserver启动完成
   if (fsrv->exec_tmout) {
 
     u32 time_ms = read_s32_timed(fsrv->fsrv_st_fd, &status, fsrv->init_tmout,
                                  stop_soon_p);
-
+    //读失败
     if (!time_ms) {
 
       kill(fsrv->fsrv_pid, fsrv->kill_signal);
-
+    //读超时
     } else if (time_ms > fsrv->init_tmout) {
 
       fsrv->last_run_timed_out = 1;
       kill(fsrv->fsrv_pid, fsrv->kill_signal);
-
+    //成功读
     } else {
 
       rlen = 4;
 
     }
 
-  } else {
-
+  } else {  
+    //没设置超时的话就嗯读
     rlen = read(fsrv->fsrv_st_fd, &status, 4);
 
   }
 
   /* If we have a four-byte "hello" message from the server, we're all set.
      Otherwise, try to figure out what went wrong. */
-
+  //forkserver启动时，并不关心接受的到的是什么字节，只要是4字节就行
   if (rlen == 4) {
 
     if (!be_quiet) { OKF("All right - fork server is up."); }
@@ -825,10 +826,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         "Timeout while initializing fork server (setting "
         "AFL_FORKSRV_INIT_TMOUT may help)");
 
-  }
-
+  } 
+  //等待fpicker退出
   if (waitpid(fsrv->fsrv_pid, &status, 0) <= 0) { PFATAL("waitpid() failed"); }
-
+  ACTF("[debug 1] forkserver(fpicker) exit/crash (%08x).", status);
   if (WIFSIGNALED(status)) {
 
     if (fsrv->mem_limit && fsrv->mem_limit < 500 && fsrv->uses_asan) {
@@ -1060,7 +1061,7 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 }
 
 /* Delete the current testcase and write the buf to the testcase file */
-
+//写入输入数据
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
 #ifdef AFL_PERSISTENT_RECORD
@@ -1088,7 +1089,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
   }
 
 #endif
-
+  //如果使用的是shmem_fuzz，就拷贝到shmem_fuzz里面了
   if (likely(fsrv->use_shmem_fuzz && fsrv->shmem_fuzz)) {
 
     if (unlikely(len > MAX_FILE)) len = MAX_FILE;
@@ -1116,7 +1117,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
   } else {
 
     s32 fd = fsrv->out_fd;
-
+    //不使用标准输入输出，使用out_file
     if (!fsrv->use_stdin && fsrv->out_file) {
 
       if (unlikely(fsrv->no_unlink)) {
@@ -1147,7 +1148,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
       lseek(fd, 0, SEEK_SET);
 
     }
-
+    //把
     // fprintf(stderr, "WRITE %d %u\n", fd, len);
     ck_write(fd, buf, len, fsrv->out_file);
 
@@ -1168,25 +1169,26 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
-
+//这里也是我们跟踪的要点
 fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
                                       volatile u8 *stop_soon_p) {
 
   s32 res;
   u32 exec_ms;
   u32 write_value = fsrv->last_run_timed_out;
-
+  ACTF("[debug 1] forkserver iters %d.", fsrv->total_execs);
   /* After this memset, fsrv->trace_bits[] are effectively volatile, so we
      must prevent any earlier operations from venturing into that
      territory. */
-
+  //清理trace_bits
   memset(fsrv->trace_bits, 0, fsrv->map_size);
 
   MEM_BARRIER();
 
   /* we have the fork server (or faux server) up and running
   First, tell it if the previous run timed out. */
-
+  // 先告知forkserver上次执行的结果
+  ACTF("[debug 1] forkserver ping (%08x).", write_value);
   if ((res = write(fsrv->fsrv_ctl_fd, &write_value, 4)) != 4) {
 
     if (*stop_soon_p) { return 0; }
@@ -1195,13 +1197,14 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   }
 
   fsrv->last_run_timed_out = 0;
-
+  //forkserver告知AFL，已经读取数据
   if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
 
     if (*stop_soon_p) { return 0; }
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
+  ACTF("[debug 1] forkserver pong (%08x).", res);
 
 #ifdef AFL_PERSISTENT_RECORD
   // end of persistent loop?
@@ -1236,19 +1239,26 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     FATAL("Fork server is misbehaving (OOM?)");
 
   }
-
+  //AFL等待Forkserver的执行结果
   exec_ms = read_s32_timed(fsrv->fsrv_st_fd, &fsrv->child_status, timeout,
                            stop_soon_p);
-
+  //如果执行超时
   if (exec_ms > timeout) {
 
     /* If there was no response from forkserver after timeout seconds,
     we kill the child. The forkserver should inform us afterwards */
-
+    //直接把forkserver kill掉
     kill(fsrv->child_pid, fsrv->kill_signal);
+    //设置time——out为超时
     fsrv->last_run_timed_out = 1;
+    //接着嗯等执行结果
     if (read(fsrv->fsrv_st_fd, &fsrv->child_status, 4) < 4) { exec_ms = 0; }
 
+  }
+  if(fsrv->child_status == SIGSEGV){
+    fsrv->total_execs++;
+    ACTF("[debug 1] AFL recv crash.");
+    return FSRV_RUN_CRASH;
   }
 
   if (!exec_ms) {
@@ -1311,7 +1321,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   MSAN in uses_asan mode uses a special exit code as it doesn't support
   abort_on_error. On top, a user may specify a custom AFL_CRASH_EXITCODE.
   Handle all three cases here. */
-
+  //正常的crash或者abort WIFSIGNALED会被设置
   if (unlikely(
           /* A normal crash/abort */
           (WIFSIGNALED(fsrv->child_status)) ||
@@ -1359,10 +1369,11 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
     fsrv->last_kill_signal =
         WIFSIGNALED(fsrv->child_status) ? WTERMSIG(fsrv->child_status) : 0;
+    ACTF("[debug 1] AFL recv crash.");
     return FSRV_RUN_CRASH;
 
   }
-
+  ACTF("[debug 1] AFL recv OK.");
   /* success :) */
   return FSRV_RUN_OK;
 

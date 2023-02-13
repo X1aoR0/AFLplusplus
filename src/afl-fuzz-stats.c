@@ -534,10 +534,10 @@ void show_stats(afl_state_t *afl) {
   }
 
   /* Roughly every minute, update fuzzer stats and save auto tokens. */
-
+  //强制保存 每分钟一次
   if (unlikely(afl->force_ui_update ||
                cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000)) {
-
+    ACTF("[debug 1] save stats.");
     afl->stats_last_stats_ms = cur_ms;
     write_stats_file(afl, t_bytes, t_byte_ratio, stab_ratio,
                      afl->stats_avg_exec);
@@ -597,7 +597,8 @@ void show_stats(afl_state_t *afl) {
   t_bits = (afl->fsrv.map_size << 3) - count_bits(afl, afl->virgin_bits);
 
   /* Now, for the visuals... */
-
+  //打印开始
+  
   if (afl->clear_screen) {
 
     SAYF(TERM_CLEAR CURSOR_HIDE);
@@ -1150,7 +1151,7 @@ void show_stats(afl_state_t *afl) {
   /* Hallelujah! */
 
   fflush(0);
-
+  
 }
 
 /* Display quick statistics at the end of processing the input directory,
@@ -1336,3 +1337,124 @@ void show_init_stats(afl_state_t *afl) {
 
 }
 
+
+
+void show_stats_on_exit(afl_state_t *afl) {
+
+  double t_byte_ratio, stab_ratio;
+
+  u64 cur_ms;
+  u32 t_bytes;
+
+
+#define IB(i) (val_buf[(i)])
+
+  cur_ms = get_cur_time();
+
+  if (afl->most_time_key) {
+
+    if (afl->most_time * 1000 < cur_ms - afl->start_time) {
+
+      afl->most_time_key = 2;
+      afl->stop_soon = 2;
+
+    }
+
+  }
+
+  if (afl->most_execs_key == 1) {
+
+    if (afl->most_execs <= afl->fsrv.total_execs) {
+
+      afl->most_execs_key = 2;
+      afl->stop_soon = 2;
+
+    }
+
+  }
+
+  /* If not enough time has passed since last UI update, bail out. */
+
+  if (cur_ms - afl->stats_last_ms < 1000 / UI_TARGET_HZ &&
+      !afl->force_ui_update) {
+
+    return;
+
+  }
+
+  /* Check if we're past the 10 minute mark. */
+
+  if (cur_ms - afl->start_time > 10 * 60 * 1000) { afl->run_over10m = 1; }
+
+  /* Calculate smoothed exec speed stats. */
+
+  if (unlikely(!afl->stats_last_execs)) {
+
+    if (likely(cur_ms != afl->start_time)) {
+
+      afl->stats_avg_exec = ((double)afl->fsrv.total_execs) * 1000 /
+                            (afl->prev_run_time + cur_ms - afl->start_time);
+
+    }
+
+  } else {
+
+    if (likely(cur_ms != afl->stats_last_ms)) {
+
+      double cur_avg =
+          ((double)(afl->fsrv.total_execs - afl->stats_last_execs)) * 1000 /
+          (cur_ms - afl->stats_last_ms);
+
+      /* If there is a dramatic (5x+) jump in speed, reset the indicator
+         more quickly. */
+
+      if (cur_avg * 5 < afl->stats_avg_exec ||
+          cur_avg / 5 > afl->stats_avg_exec) {
+
+        afl->stats_avg_exec = cur_avg;
+
+      }
+
+      afl->stats_avg_exec = afl->stats_avg_exec * (1.0 - 1.0 / AVG_SMOOTHING) +
+                            cur_avg * (1.0 / AVG_SMOOTHING);
+
+    }
+
+  }
+
+  afl->stats_last_ms = cur_ms;
+  afl->stats_last_execs = afl->fsrv.total_execs;
+
+  /* Tell the callers when to contact us (as measured in execs). */
+
+  afl->stats_update_freq = afl->stats_avg_exec / (UI_TARGET_HZ * 10);
+  if (!afl->stats_update_freq) { afl->stats_update_freq = 1; }
+
+  /* Do some bitmap stats. */
+
+  t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
+  t_byte_ratio = ((double)t_bytes * 100) / afl->fsrv.map_size;
+
+  if (likely(t_bytes) && unlikely(afl->var_byte_count)) {
+
+    stab_ratio = 100 - (((double)afl->var_byte_count * 100) / t_bytes);
+
+  } else {
+
+    stab_ratio = 100;
+
+  }
+
+  /* Roughly every minute, update fuzzer stats and save auto tokens. */
+  //强制保存 每分钟一次
+  if (unlikely(afl->force_ui_update ||
+               cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000)) {
+    ACTF("[debug 1] save stats.");
+    afl->stats_last_stats_ms = cur_ms;
+    write_stats_file(afl, t_bytes, t_byte_ratio, stab_ratio,
+                     afl->stats_avg_exec);
+    save_auto(afl);
+    write_bitmap(afl);
+
+  }
+}

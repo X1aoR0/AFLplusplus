@@ -382,7 +382,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   u32 a_len = 0;
 
 #ifdef IGNORE_FINDS
-
+  ACTF("[debug 1] fuzz_one_original :  IGNORE_FINDS.");
   /* In IGNORE_FINDS mode, skip any entries that weren't in the
      initial data set. */
 
@@ -398,7 +398,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
       if (el->afl_custom_queue_get &&
           !el->afl_custom_queue_get(el->data, afl->queue_cur->fname)) {
-
+        ACTF("[debug 1] fuzz_one_original return 1.");
         return 1;
 
       }
@@ -406,7 +406,13 @@ u8 fuzz_one_original(afl_state_t *afl) {
     });
 
   }
+  ACTF("[debug 1] fuzz_one_original afl->current_entry %d.",afl->current_entry);
 
+
+  ACTF("[debug 1] fuzz_one_original afl->pending_favored %d.",afl->pending_favored);
+  ACTF("[debug 1] fuzz_one_original queue_cur->was_fuzzed %d.",afl->queue_cur->was_fuzzed);
+  ACTF("[debug 1] fuzz_one_original queue_cur->fuzz_level %d.",afl->queue_cur->fuzz_level);
+  ACTF("[debug 1] fuzz_one_original queue_cur->favored %d.",afl->queue_cur->favored);
   if (likely(afl->pending_favored)) {
 
     /* If we have any favored, non-fuzzed new arrivals in the queue,
@@ -415,8 +421,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (((afl->queue_cur->was_fuzzed > 0 || afl->queue_cur->fuzz_level > 0) ||
          !afl->queue_cur->favored) &&
+         //这里设置的概率基本是100%
         likely(rand_below(afl, 100) < SKIP_TO_NEW_PROB)) {
-
+      ACTF("[debug 1] fuzz_one_original return 2.");
       return 1;
 
     }
@@ -432,11 +439,17 @@ u8 fuzz_one_original(afl_state_t *afl) {
     if (afl->queue_cycle > 1 &&
         (afl->queue_cur->fuzz_level == 0 || afl->queue_cur->was_fuzzed)) {
 
-      if (likely(rand_below(afl, 100) < SKIP_NFAV_NEW_PROB)) { return 1; }
+      if (likely(rand_below(afl, 100) < SKIP_NFAV_NEW_PROB)) { 
+        ACTF("[debug 1] fuzz_one_original return 3.");
+        return 1; 
+        }
 
     } else {
 
-      if (likely(rand_below(afl, 100) < SKIP_NFAV_OLD_PROB)) { return 1; }
+      if (likely(rand_below(afl, 100) < SKIP_NFAV_OLD_PROB)) { 
+        ACTF("[debug 1] fuzz_one_original return 4.");
+        return 1; 
+        }
 
     }
 
@@ -459,7 +472,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
   len = afl->queue_cur->len;
-
+  ACTF("[debug 1] fuzz_one_original testcase get len: %d.", len);
   out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
   if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
@@ -470,7 +483,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /*******************************************
    * CALIBRATION (only if failed earlier on) *
    *******************************************/
-
+  ACTF("[debug 1] fuzz_one_original: CALIBRATION.");
   if (unlikely(afl->queue_cur->cal_failed)) {
 
     u8 res = FSRV_RUN_TMOUT;
@@ -502,13 +515,14 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /************
    * TRIMMING *
    ************/
-
+  ACTF("[debug 1] fuzz_one_original: TRIMMING.");
   if (unlikely(!afl->non_instrumented_mode && !afl->queue_cur->trim_done &&
                !afl->disable_trim)) {
 
     u32 old_len = afl->queue_cur->len;
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
+    ACTF("[debug 1] fuzz_one_original:trim_case.");
     orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
 
     if (unlikely(res == FSRV_RUN_ERROR)) {
@@ -540,7 +554,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /*********************
    * PERFORMANCE SCORE *
    *********************/
-
+  ACTF("[debug 1] fuzz_one_original: PERFORMANCE SCORE.");
   if (likely(!afl->old_seed_selection))
     orig_perf = perf_score = afl->queue_cur->perf_score;
   else
@@ -586,7 +600,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
              (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
                   ? afl->queue_cur->depth * 30
                   : afl->havoc_max_mult * 100))) {
-
+    ACTF("[debug 1] fuzz_one_original: skip_deterministic 1.");                
     goto custom_mutator_stage;
 
   }
@@ -597,7 +611,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   if (unlikely(afl->main_node_max &&
                (afl->queue_cur->exec_cksum % afl->main_node_max) !=
                    afl->main_node_id - 1)) {
-
+    ACTF("[debug 1] fuzz_one_original: skip_deterministic 2.");                   
     goto custom_mutator_stage;
 
   }
@@ -607,7 +621,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /*********************************************
    * SIMPLE BITFLIP (+dictionary construction) *
    *********************************************/
-
+  ACTF("[debug 1] fuzz_one_original: SIMPLE BITFLIP.");  
 #define FLIP_BIT(_ar, _b)                   \
   do {                                      \
                                             \
@@ -1002,7 +1016,7 @@ skip_bitflip:
   /**********************
    * ARITHMETIC INC/DEC *
    **********************/
-
+  ACTF("[debug 1] fuzz_one_original: ARITHMETIC INC/DEC.");  
   /* 8-bit arithmetics. */
 
   afl->stage_name = "arith 8/8";
@@ -1351,7 +1365,7 @@ skip_arith:
   /**********************
    * INTERESTING VALUES *
    **********************/
-
+  ACTF("[debug 1] fuzz_one_original: INTERESTING VALUES."); 
   afl->stage_name = "interest 8/8";
   afl->stage_short = "int8";
   afl->stage_cur = 0;
@@ -1594,7 +1608,7 @@ skip_interest:
   /********************
    * DICTIONARY STUFF *
    ********************/
-
+  ACTF("[debug 1] fuzz_one_original: DICTIONARY STUFF."); 
   if (!afl->extras_cnt) { goto skip_user_extras; }
 
   /* Overwrite with user-supplied extras. */
@@ -1788,7 +1802,7 @@ custom_mutator_stage:
   /*******************
    * CUSTOM MUTATORS *
    *******************/
-
+  ACTF("[debug 1] fuzz_one_original: CUSTOM MUTATORS."); 
   if (likely(!afl->custom_mutators_count)) { goto havoc_stage; }
 
   afl->stage_name = "custom mutator";
@@ -1937,7 +1951,7 @@ custom_mutator_stage:
   /****************
    * RANDOM HAVOC *
    ****************/
-
+  ACTF("[debug 1] fuzz_one_original: RANDOM HAVOC."); 
 havoc_stage:
 
   afl->stage_cur_byte = -1;
@@ -2773,7 +2787,7 @@ havoc_stage:
   /************
    * SPLICING *
    ************/
-
+  ACTF("[debug 1] fuzz_one_original: SPLICING."); 
   /* This is a last-resort strategy triggered by a full round with no findings.
      It takes the current input file, randomly selects another input, and
      splices them together at some offset, then relies on the havoc
@@ -2847,12 +2861,12 @@ retry_splicing:
 
 /* we are through with this queue entry - for this iteration */
 abandon_entry:
-
+  ACTF("[debug 1] fuzz_one_original: abandon_entry."); 
   afl->splicing_with = -1;
 
   /* Update afl->pending_not_fuzzed count if we made it through the calibration
      cycle and have not seen this entry before. */
-
+  //更新pending_favored数量，因为到这一步说明这个种子已经fuzz过了，
   if (!afl->stop_soon && !afl->queue_cur->cal_failed &&
       (afl->queue_cur->was_fuzzed == 0 || afl->queue_cur->fuzz_level == 0) &&
       !afl->queue_cur->disabled) {
@@ -5480,7 +5494,10 @@ u8 fuzz_one(afl_state_t *afl) {
 
   // if limit_time_sig == -1 then both are run after each other
 
-  if (afl->limit_time_sig <= 0) { key_val_lv_1 = fuzz_one_original(afl); }
+  if (afl->limit_time_sig <= 0) { 
+    key_val_lv_1 = fuzz_one_original(afl);
+    ACTF("[debug 1]fuzz_one: fuzz_one_original."); 
+    }
 
   if (afl->limit_time_sig != 0) {
 

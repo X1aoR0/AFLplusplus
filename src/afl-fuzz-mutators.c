@@ -452,7 +452,10 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     /* Since this can be slow, update the screen every now and then. */
 
-    if (!(trim_exec++ % afl->stats_update_freq)) { show_stats(afl); }
+    if (!(trim_exec++ % afl->stats_update_freq)) { 
+        //调试需要
+        //show_stats(afl); 
+      }
 
   }
 

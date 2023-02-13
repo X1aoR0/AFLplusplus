@@ -825,7 +825,8 @@ void perform_dry_run(afl_state_t *afl) {
   u32                 cal_failures = 0, idx;
   u8 *                skip_crashes = afl->afl_env.afl_skip_crashes;
   u8 *                use_mem;
-
+  //dry每个输入
+  ACTF("[debug 1] perform_dry_run: queued_paths,%d.", afl->queued_paths);
   for (idx = 0; idx < afl->queued_paths; idx++) {
 
     q = afl->queue_buf[idx];
@@ -874,13 +875,13 @@ void perform_dry_run(afl_state_t *afl) {
     switch (res) {
 
       case FSRV_RUN_OK:
-
+        ACTF("[debug 1] perform_dry_run: FSRV_RUN_OK.");
         if (afl->crash_mode) { FATAL("Test case '%s' does *NOT* crash", fn); }
 
         break;
 
       case FSRV_RUN_TMOUT:
-
+        ACTF("[debug 1] perform_dry_run: FSRV_RUN_TMOUT.");
         if (afl->timeout_given && !afl->afl_env.afl_exit_on_seed_issues) {
 
           /* if we have a timeout but a timeout value was given then always
@@ -920,7 +921,7 @@ void perform_dry_run(afl_state_t *afl) {
         }
 
       case FSRV_RUN_CRASH:
-
+        ACTF("[debug 1] perform_dry_run: FSRV_RUN_CRASH.");
         if (afl->crash_mode) { break; }
 
         if (skip_crashes) {
@@ -1064,7 +1065,7 @@ void perform_dry_run(afl_state_t *afl) {
           ++i;
 
         }
-
+        
         if (i < afl->queued_paths && afl->queue_buf[i]) {
 
           afl->queue = afl->queue_buf[i];
@@ -1208,7 +1209,7 @@ void perform_dry_run(afl_state_t *afl) {
     afl->queue_top = afl->queue;
 
   }
-
+  //dry完毕，没问题
   OKF("All test cases processed.");
 
 }
