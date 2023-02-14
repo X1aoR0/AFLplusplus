@@ -468,7 +468,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   u8 fn[PATH_MAX];
 
   /* Update path frequency. */
-
+  ACTF("[debug 1] save_if_interesting (%08x).", fault);
   /* Generating a hash on every input is super expensive. Bad idea and should
      only be used for special schedules */
   if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
@@ -688,7 +688,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       break;
 
     case FSRV_RUN_CRASH:
-
+    ACTF("[debug 1] save_if_intersting: FSRV_RUN_CRASH.");
     keep_as_crash:
 
       /* This is handled in a manner roughly similar to timeouts,
