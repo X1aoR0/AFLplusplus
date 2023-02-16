@@ -665,7 +665,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!optarg) { FATAL("Wrong usage of -m"); }
 
         if (!strcmp(optarg, "none")) {
-
+          ACTF("[debug 1] AFL++ : mem limit none.");
           afl->fsrv.mem_limit = 0;
           break;
 
@@ -1641,7 +1641,8 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->argv = use_argv;
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
-
+  afl->fsrv.commap = afl->shm.commap;
+  
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode) {
 

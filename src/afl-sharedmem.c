@@ -51,7 +51,7 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 #include <sys/mman.h>
-
+#include <sys/sem.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
@@ -80,25 +80,54 @@ void afl_shm_deinit(sharedmem_t *shm) {
 
 }
 
+
 /* Configure shared memory.
    Returns a pointer to shm->map for ease of use.
 */
-
+//add COMMAP
+#define COMMAP_SIZE 0xA0000
+#define COMMAP_ENV_MAP "COMMAP_ENV_MAP"
+#define EXEC_ENV_MAP "EXEC_ENV_MAP"
+#define ITER_ENV_MAP "ITER_ENV_MAP"
 u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
                  unsigned char non_instrumented_mode) {
-
+  
+  
   shm->map_size = 0;
 
   shm->map = NULL;
   shm->cmp_map = NULL;
-
+  shm->commap = NULL;
   u8 *shm_str;
 
   shm->shm_id =
       shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
-  printf("shm_id %i",shm->shm_id);
+  printf("shm_id %i\n",shm->shm_id);
   if (shm->shm_id < 0) { PFATAL("shmget() failed"); }
 
+  //create Commap
+  ACTF("[debug 1] Created commap size %x\n", COMMAP_SIZE);
+  //核心的传输入数据的共享内存
+  int commap_id = shmget(IPC_PRIVATE, COMMAP_SIZE, IPC_CREAT | IPC_EXCL | 0644);
+
+  ACTF("[*] Created commap = %d\n", commap_id);
+  u8* commap_str = alloc_printf("%d", commap_id);
+  setenv(COMMAP_ENV_MAP, commap_str, 1);
+  shm->commap = shmat(commap_id, NULL, 0);
+  ACTF("[*] Created commap address = %lx\n", shm->commap);
+
+  //end create commap
+  //create exec and iter map
+  int exec_map_id = shmget(IPC_PRIVATE, 0x10, IPC_CREAT | IPC_EXCL | 0644);
+  int iter_map_id = shmget(IPC_PRIVATE, 0x10, IPC_CREAT | IPC_EXCL | 0644);
+  ACTF("[*] Created exec_map = %d\n", exec_map_id);
+  ACTF("[*] Created iter_map = %d\n", iter_map_id);
+  u8* exec_map_str = alloc_printf("%d", exec_map_id);
+  setenv(EXEC_ENV_MAP, exec_map_str, 1);
+
+  u8* iter_map_str = alloc_printf("%d", iter_map_id);
+  setenv(ITER_ENV_MAP, iter_map_str, 1);
+  //end create exec and iter map
   if (shm->cmplog_mode) {
 
     shm->cmplog_shm_id = shmget(IPC_PRIVATE, sizeof(struct cmp_map),

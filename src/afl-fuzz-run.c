@@ -911,11 +911,17 @@ u8 __attribute__((hot))
 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
+  if(len == 0){
+    ACTF("[debug 1] common_fuzz_stuff: len =0 ,forcely set.");
+    fault = FSRV_RUN_OK;
+    afl->fsrv.trace_bits[0] = 1;
+  }else{
+    write_to_testcase(afl, out_buf, len);
 
-  write_to_testcase(afl, out_buf, len);
+    fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+    ACTF("[debug 1] common_fuzz_stuff: fuzz_run_target.");
+  }
 
-  fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-  ACTF("[debug 1] common_fuzz_stuff: fuzz_run_target.");
   if (afl->stop_soon) { return 1; }
 
   if (fault == FSRV_RUN_TMOUT) {

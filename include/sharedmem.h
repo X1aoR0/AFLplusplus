@@ -47,7 +47,7 @@ typedef struct sharedmem {
 #endif
 
   u8 *map;                                          /* shared memory region */
-
+  u8* commap;
   size_t map_size;                                 /* actual allocated size */
 
   int             cmplog_mode;

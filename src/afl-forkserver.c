@@ -430,7 +430,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       setrlimit(RLIMIT_NOFILE, &r);                        /* Ignore errors */
 
     }
-
+    ACTF("[debug 1] afl_fsrv_start : mem_limit (%08x).", fsrv->mem_limit);
     if (fsrv->mem_limit) {
 
       r.rlim_max = r.rlim_cur = ((rlim_t)fsrv->mem_limit) << 20;
@@ -1063,7 +1063,13 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 /* Delete the current testcase and write the buf to the testcase file */
 //写入输入数据
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
-
+  u8 use_shmem_pass_input = 1;
+  if(use_shmem_pass_input){
+    memset(fsrv->commap,0,0xA0000);
+    memcpy(fsrv->commap,&len,4);
+    memcpy(fsrv->commap+4,buf,len);
+    return;
+  }
 #ifdef AFL_PERSISTENT_RECORD
   if (unlikely(fsrv->persistent_record)) {
 
