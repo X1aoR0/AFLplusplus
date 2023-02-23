@@ -188,7 +188,10 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
                                   gsize operand2, uint8_t size) {
 
   gsize address = ctx_read_reg(context, X86_REG_RIP);
-
+  if(address == 0x55555555535F)
+  {
+    plog("[*] in 0x55555555535F ,cmplog_handle_cmp_sub\n");
+  }
   //根据地址得到hash _key
   register uintptr_t k = instrument_get_offset_hash(GUM_ADDRESS(address));
   plog("[*] cmplog success\n");
@@ -277,18 +280,29 @@ static void cmplog_instrument_cmp_sub(const cs_insn      *instr,
       return;
 
   }
+
   //操作数只能是两个
   if (x86.op_count != 2) return;
 
   operand1 = &x86.operands[0];
   operand2 = &x86.operands[1];
-
+  if(GUM_ADDRESS(instr->address) == 0x55555555535F)
+  {
+    plog("[*] in 0x55555555535F op_count %d ,op1_type %d, op2_type %d\n",x86.op_count,operand1->type,operand2->type);
+  }
   if (operand1->type == X86_OP_INVALID) return;
   if (operand2->type == X86_OP_INVALID) return;
-
+  if(GUM_ADDRESS(instr->address) == 0x55555555535F)
+  {
+    plog("[*] in 0x55555555535F op1_size %d, op2_size %d\n",operand1->size,operand2->size);
+  }
   /* Both operands are the same size */
-  if (operand1->size == 1) { return; }
-  plog("");
+  //if (operand1->size == 1) { return; }
+
+  if(GUM_ADDRESS(instr->address) == 0x55555555535F)
+  {
+    plog("[*] in 0x55555555535F ,before cmplog_instrument_cmp_sub_put_callout\n");
+  }
   cmplog_instrument_cmp_sub_put_callout(iterator, operand1, operand2);
 
 }
@@ -297,8 +311,12 @@ static void cmplog_instrument_cmp_sub(const cs_insn      *instr,
 void cmplog_instrument(const cs_insn *instr, GumStalkerIterator *iterator) {
   plog("[*] __afl_cmp_map 's addr %p\n",__afl_cmp_map);
   if (__afl_cmp_map == NULL) return;
-
+  if(GUM_ADDRESS(instr->address) == 0x55555555535F)
+  {
+    plog("[*] in 0x55555555535F before  cmplog_instrument_cmp_sub \n");
+  }
   cmplog_instrument_call(instr, iterator);
+
   cmplog_instrument_cmp_sub(instr, iterator);
 
 }

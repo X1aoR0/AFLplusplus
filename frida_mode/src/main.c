@@ -30,7 +30,7 @@
 #include "stalker.h"
 #include "stats.h"
 #include "util.h"
-
+#include "frida_cmplog.h"
 #define PROC_MAX 65536
 
 #ifdef __APPLE__
@@ -272,7 +272,10 @@ __attribute__((visibility("default"))) void afl_frida_start(void) {
 static int on_main(int argc, char **argv, char **envp) {
 
   int ret;
-
+  // if (__afl_cmp_map != NULL){
+  //   plog("[*]memset cmp_map \n");
+  //   memset(__afl_cmp_map,0,1032*65536);
+  // };
   on_main_os(argc, argv, envp);
 
   intercept_unhook_self();
@@ -287,6 +290,10 @@ static int on_main(int argc, char **argv, char **envp) {
     //打印main的地址
     plog("[*] main addr : %p\n",main_fn);
     //调用main函数
+      if (__afl_cmp_map != NULL){
+    plog("[*]memset cmp_map \n");
+    memset(__afl_cmp_map,0,1032*65536);
+  };
     ret = main_fn(argc, argv, envp);
 
   }

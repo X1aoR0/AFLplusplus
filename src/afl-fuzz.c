@@ -600,6 +600,12 @@ int init_external(afl_state_t *afl)
     return 1;
 }
 
+int64_t millis() {
+    struct timespec now;
+    timespec_get(&now, TIME_UTC);
+    return ((int64_t) now.tv_sec) * 1000 + ((int64_t) now.tv_nsec) / 1000000;
+}
+
 
 /* Main entry point */
 
@@ -2430,7 +2436,7 @@ int main(int argc, char **argv_orig, char **envp) {
     {
         printf(".");
         fflush(stdout);
-
+        printf("before sem_wait ping_sem: %llu\n", millis());
         // Wait until ping is ready from client with input for us
         if (sem_wait(ping_sem) == -1)
             FATAL("Failed to wait on ping semaphore");
@@ -2469,9 +2475,11 @@ int main(int argc, char **argv_orig, char **envp) {
         // FILE* cov_fp = fopen("cov_result.bin.testforkserver2","wb");
         // fwrite(afl->fsrv.trace_bits,1,map_size,cov_fp);
         // fclose(cov_fp);
-
+        printf("before common_fuzz_stuff: %llu\n", millis());
         //循环中的fuzz启动
         common_fuzz_stuff(afl, (u8 *)input, ping_msg_hdr->inputsize); // 将input写入文件并以其为参数运行目标程序
+          
+        printf("after common_fuzz_stuff: %llu\n", millis());
           //write out cov
         // cov_fp = fopen("cov_result.bin.testforkserver3","wb");
         // fwrite(afl->fsrv.trace_bits,1,map_size,cov_fp);
@@ -2532,7 +2540,7 @@ int main(int argc, char **argv_orig, char **envp) {
         // copies to shared_mem
         memset(shared_mem_ptr, 0, SHM_SIZE);
         memcpy(shared_mem_ptr, pong_msg, sizeof(PONG_MSG));
-
+        printf("before sem_post pong_msg: %llu\n", millis());
         // Tell client that there is a buffer to read
         if (sem_post(pong_sem) == -1)
             FATAL("Failed to release pong semaphore");

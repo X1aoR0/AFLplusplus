@@ -202,6 +202,10 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
      */
      //被排除的地址
     excluded = range_is_excluded(GUM_ADDRESS(instr->address));
+    if(GUM_ADDRESS(instr->address) == 0x55555555535F)
+    {
+      plog("[*] in 0x55555555535F ,excluded is %d \n",excluded);
+    }
     //状态收集，就是收集各个指令的记录信息
     stats_collect(instr, begin);
     //从这里就能看到begin是指基本块刚进来，下面就会设置成false，代表粒度是基本块
@@ -257,7 +261,10 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
     }
     //地址在记录范围内
     if (likely(!excluded)) {
-
+      if(GUM_ADDRESS(instr->address) == 0x55555555535F)
+      {
+        plog("[*] in 0x55555555535F before  cmplog_instrument,excluded is %d \n",excluded);
+      }
       asan_instrument(instr, iterator);
       //cmp指令 插桩
       cmplog_instrument(instr, iterator);

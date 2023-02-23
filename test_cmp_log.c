@@ -17,6 +17,20 @@ int bb(char a) {
         return 11;
     }
 }
+int cmp_proc_fn(char* buf,int len){
+    if(len <= 6)
+        exit(0);
+
+    if(buf[0] == 'A' || buf[0] =='B'||buf[0] =='C'){
+        printf("hello ,you are in door 1\n");
+        if(buf[1] == 'A' || buf[1] =='B'||buf[1] =='C'){
+            printf("hello ,you are in door 2\n");
+            if(buf[4] == 'A' || buf[4] =='B'||buf[4] =='C')
+                printf("hello ,you are in door 3\n");
+        }
+    }
+    printf("success\n");
+}
 
 int proc_fn(char *buf, int len) {
     char local_buf[32];
@@ -55,7 +69,7 @@ int main(int argc, char** argv) {
         fread(buffer, file_size, 1, fp);
         // 关闭文件
         fclose(fp);
-        proc_fn(buffer, file_size);
+        cmp_proc_fn(buffer, file_size);
 
     }
     printf("successfully exec\n");
