@@ -49,6 +49,14 @@
 #include <sys/select.h>
 #include <sys/stat.h>
 
+
+int64_t millis1() {
+    struct timespec now;
+    timespec_get(&now, TIME_UTC);
+    return ((int64_t) now.tv_sec) * 1000 + ((int64_t) now.tv_nsec) / 1000000;
+}
+//int64_t millis();
+extern FILE* out_file_fp;
 /**
  * The correct fds for reading and writing pipes
  */
@@ -1402,7 +1410,7 @@ afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 fsrv_run_result_t __attribute__((hot))
 afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
                     volatile u8 *stop_soon_p) {
-
+  //FILE* out_file_fp = fopen("aflout.log","w+");
   s32 res;
   u32 exec_ms;
   u32 write_value = fsrv->last_run_timed_out;
@@ -1484,7 +1492,7 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   /* we have the fork server (or faux server) up and running
   First, tell it if the previous run timed out. */
-
+  int64_t begin_fuzz1 = millis1();
   if ((res = write(fsrv->fsrv_ctl_fd, &write_value, 4)) != 4) {
 
     if (*stop_soon_p) { return 0; }
@@ -1500,6 +1508,8 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
+  int64_t begin_fuzz2 = millis1();
+  fprintf(out_file_fp,"[*] read write 1 cost %llu\n",  begin_fuzz2-begin_fuzz1);
 
 #ifdef AFL_PERSISTENT_RECORD
   // end of persistent loop?
@@ -1537,7 +1547,9 @@ afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   exec_ms = read_s32_timed(fsrv->fsrv_st_fd, &fsrv->child_status, timeout,
                            stop_soon_p);
-
+  int64_t begin_fuzz3 = millis1();
+  fprintf(out_file_fp,"[*] read2 cost %llu\n",  begin_fuzz3-begin_fuzz2);
+  //fclose(out_file_fp);
   if (exec_ms > timeout) {
 
     /* If there was no response from forkserver after timeout seconds,

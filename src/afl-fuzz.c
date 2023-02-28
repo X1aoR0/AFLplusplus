@@ -606,11 +606,11 @@ int64_t millis() {
     return ((int64_t) now.tv_sec) * 1000 + ((int64_t) now.tv_nsec) / 1000000;
 }
 
-
+FILE* out_file_fp = NULL;
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
-
+  out_file_fp = fopen("aflout.log","w+");
   s32 opt, auto_sync = 0 /*, user_set_cache = 0*/;
   u64 prev_queued = 0;
   u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, default_output = 1,
@@ -2436,7 +2436,8 @@ int main(int argc, char **argv_orig, char **envp) {
     {
         printf(".");
         fflush(stdout);
-        printf("before sem_wait ping_sem: %llu\n", millis());
+        int64_t begin_wait_fuzz = millis();
+        //printf("before sem_wait ping_sem: %llu\n", millis());
         // Wait until ping is ready from client with input for us
         if (sem_wait(ping_sem) == -1)
             FATAL("Failed to wait on ping semaphore");
@@ -2475,11 +2476,12 @@ int main(int argc, char **argv_orig, char **envp) {
         // FILE* cov_fp = fopen("cov_result.bin.testforkserver2","wb");
         // fwrite(afl->fsrv.trace_bits,1,map_size,cov_fp);
         // fclose(cov_fp);
-        printf("before common_fuzz_stuff: %llu\n", millis());
+        int64_t begin_fuzz = millis();
         //循环中的fuzz启动
         common_fuzz_stuff(afl, (u8 *)input, ping_msg_hdr->inputsize); // 将input写入文件并以其为参数运行目标程序
           
-        printf("after common_fuzz_stuff: %llu\n", millis());
+        int64_t after_fuzz = millis();
+        fprintf(out_file_fp,"[*] common_fuzz_stuff cost %llu\n",  after_fuzz-begin_fuzz);
           //write out cov
         // cov_fp = fopen("cov_result.bin.testforkserver3","wb");
         // fwrite(afl->fsrv.trace_bits,1,map_size,cov_fp);
@@ -2511,7 +2513,7 @@ int main(int argc, char **argv_orig, char **envp) {
             status |= STATUS_ERROR;
             break;
         }
-
+        int64_t begin_pong = millis();
         // Craft a pong response
         pong_msg->msgid = ping_msg_hdr->msgid;
         pong_msg->status = status;
@@ -2524,6 +2526,8 @@ int main(int argc, char **argv_orig, char **envp) {
         // u32 i = 0;
         // u32 j = 0;
         fflush(stdout);
+        int64_t after_pong = millis();
+        fprintf(out_file_fp,"[*] build pong cost %llu\n",  after_pong-begin_pong);
         // memset(&(pong_msg.trace_bits), 0, 3 * MAP_SIZE);
 
         // for (i = 0; i < MAP_SIZE; i++) // 1 << 16
@@ -2544,6 +2548,9 @@ int main(int argc, char **argv_orig, char **envp) {
         // Tell client that there is a buffer to read
         if (sem_post(pong_sem) == -1)
             FATAL("Failed to release pong semaphore");
+        int64_t after_post_fuzz = millis();
+        fprintf(out_file_fp,"[*] one iter cost %llu\n",  after_post_fuzz-begin_wait_fuzz);
+        fflush(out_file_fp);
     }
 
   stop_fuzzing:

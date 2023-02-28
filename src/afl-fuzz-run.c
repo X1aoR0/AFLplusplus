@@ -1032,15 +1032,18 @@ u8 __attribute__((hot))
 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
-
+  int64_t begin_fuzz1 = millis();
   if (unlikely(len = write_to_testcase(afl, (void **)&out_buf, len, 0)) == 0) {
 
     return 0;
 
   }
-
+  int64_t begin_fuzz2 = millis();
+  fprintf(out_file_fp,"[*] write_to_testcase cost %llu\n",  begin_fuzz2-begin_fuzz1);
   fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
   //保存fault原因
+  int64_t begin_fuzz3 = millis();
+  fprintf(out_file_fp,"[*] fuzz_run_target cost %llu\n",  begin_fuzz3-begin_fuzz2);
   fault_save = fault;
   if (afl->stop_soon) { return 1; }
 

@@ -1133,6 +1133,9 @@ u8   calibrate_case(afl_state_t *, struct queue_entry *, u8 *, u32, u8);
 u8   trim_case(afl_state_t *, struct queue_entry *, u8 *);
 u8   common_fuzz_stuff(afl_state_t *, u8 *, u32);
 fsrv_run_result_t fuzz_run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
+/*test log*/
+int64_t millis();
+FILE* out_file_fp; 
 
 /* Fuzz one */
 

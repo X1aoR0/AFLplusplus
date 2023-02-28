@@ -61,16 +61,21 @@ static main_fn_t main_fn = NULL;
 
 
 FILE* out_log_fp = NULL; 
+int plog_on = 0;
 // Either log to stdout or to syslog depending on whether we are run in AFL or standalone mode
 void plog(const char *format, ...) {
     //static FILE* fp = open("fuzz.log","w");
-    va_list args;
-    va_start(args, format);
+    
+    if(plog_on){
+      va_list args;
+      va_start(args, format);
 
-    vfprintf(out_log_fp,format, args);
-    fflush(out_log_fp);
+      vfprintf(out_log_fp,format, args);
+      fflush(out_log_fp);
 
-    va_end(args);
+      va_end(args);
+    }
+
     
 }
 
@@ -213,7 +218,10 @@ static void afl_print_env(void) {
 }
 
 __attribute__((visibility("default"))) void afl_frida_start(void) {
-  out_log_fp = fopen("cmp.log","a+");
+  if(plog_on){
+    out_log_fp = fopen("cmp.log","a+");
+  }
+  
   FOKF(cRED "**********************");
   FOKF(cRED "* " cYEL "******************" cRED " *");
   FOKF(cRED "* " cYEL "* " cGRN "**************" cYEL " *" cRED " *");
