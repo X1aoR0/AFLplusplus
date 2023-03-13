@@ -2434,6 +2434,7 @@ int main(int argc, char **argv_orig, char **envp) {
   //进入fuzz循环
     while (1)
     {
+        
         printf(".");
         fflush(stdout);
         int64_t begin_wait_fuzz = millis();
@@ -2441,16 +2442,26 @@ int main(int argc, char **argv_orig, char **envp) {
         // Wait until ping is ready from client with input for us
         if (sem_wait(ping_sem) == -1)
             FATAL("Failed to wait on ping semaphore");
-
+        FILE* cmp_log_config = fopen("/tmp/cmp_log_config","r");
+        if(cmp_log_config == 0){
+          FATAL("Failed to open cmp_log_config");
+          exit(0);
+        }
+        char* buffer_tmp = (char*)malloc(8); // 为读取数据申请内存
+        fread(buffer_tmp, 1, 1, cmp_log_config);
+        buffer_tmp[1] = 0;
+        int  cmp_log_flag =atoi(buffer_tmp);
+        fprintf(out_file_fp,"[*] cmp_log_flag %d\n",  cmp_log_flag);
         if (afl->stop_soon)
             break;
 
         // Decoding PING message
         PING_MSG_HDR *ping_msg_hdr = (PING_MSG_HDR *)shared_mem_ptr;
         u8 *input = (u8 *)&shared_mem_ptr[sizeof(PING_MSG_HDR)];
-
-        PONG_MSG* pong_msg = malloc(sizeof(PONG_MSG));
-        memset(pong_msg,0,sizeof(PONG_MSG));
+        //malloc一个PONG_MSG应该也挺花时间的，直接赋值到shared_mem_ptr
+        //PONG_MSG* pong_msg = malloc(sizeof(PONG_MSG));
+        //memset(pong_msg,0,sizeof(PONG_MSG));
+        PONG_MSG* pong_msg = (PONG_MSG*)shared_mem_ptr;
         // Sanity check
         if (ping_msg_hdr->inputsize > MAX_INPUT_SIZE)
         {
@@ -2476,7 +2487,12 @@ int main(int argc, char **argv_orig, char **envp) {
         // FILE* cov_fp = fopen("cov_result.bin.testforkserver2","wb");
         // fwrite(afl->fsrv.trace_bits,1,map_size,cov_fp);
         // fclose(cov_fp);
+        if(cmp_log_flag){
+          memset(afl->shm.cmp_map,0,CMP_MAP_SIZE);
+        }
         int64_t begin_fuzz = millis();
+
+        
         //循环中的fuzz启动
         common_fuzz_stuff(afl, (u8 *)input, ping_msg_hdr->inputsize); // 将input写入文件并以其为参数运行目标程序
           
@@ -2520,8 +2536,11 @@ int main(int argc, char **argv_orig, char **envp) {
         printf(" afl->shm.cmp_map 'ss addr %p\n", afl->shm.cmp_map);
         // 获取afl运行结果
         memcpy(pong_msg->trace_bits, afl->fsrv.trace_bits, MAP_SIZE);
-        printf(" CMP_MAP_SIZE 's size %d\n", CMP_MAP_SIZE);
-        memcpy(pong_msg->cmp_map, afl->shm.cmp_map, CMP_MAP_SIZE);
+        if(cmp_log_flag){
+          printf(" CMP_MAP_SIZE 's size %d\n", CMP_MAP_SIZE);
+          memcpy(pong_msg->cmp_map, afl->shm.cmp_map, CMP_MAP_SIZE);
+        }
+
         // memcpy(&pong_msg.trace_bits[0], trace_bits, MAP_SIZE);
         // u32 i = 0;
         // u32 j = 0;
@@ -2542,8 +2561,13 @@ int main(int argc, char **argv_orig, char **envp) {
         // }
 
         // copies to shared_mem
-        memset(shared_mem_ptr, 0, SHM_SIZE);
-        memcpy(shared_mem_ptr, pong_msg, sizeof(PONG_MSG));
+        //memset(shared_mem_ptr, 0, SHM_SIZE);
+        if(cmp_log_flag){
+          memcpy(shared_mem_ptr, pong_msg, sizeof(PONG_MSG));
+        }else{
+          memcpy(shared_mem_ptr, pong_msg, sizeof(PONG_MSG)-CMP_MAP_SIZE);
+        }
+        
         printf("before sem_post pong_msg: %llu\n", millis());
         // Tell client that there is a buffer to read
         if (sem_post(pong_sem) == -1)

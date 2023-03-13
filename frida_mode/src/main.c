@@ -59,6 +59,8 @@ typedef int (*main_fn_t)(int argc, char **argv, char **envp);
 
 static main_fn_t main_fn = NULL;
 
+//添加一个cmp_log开关，随时控制cmp-log的启用
+
 
 FILE* out_log_fp = NULL; 
 int plog_on = 0;
@@ -300,7 +302,7 @@ static int on_main(int argc, char **argv, char **envp) {
     //调用main函数
       if (__afl_cmp_map != NULL){
     plog("[*]memset cmp_map \n");
-    memset(__afl_cmp_map,0,1032*65536);
+    //memset(__afl_cmp_map,0,1032*65536);
   };
     ret = main_fn(argc, argv, envp);
 

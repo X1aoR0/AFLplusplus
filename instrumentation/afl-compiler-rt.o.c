@@ -666,7 +666,7 @@ static void __afl_map_shm(void) {
     u32 shm_id = atoi(id_str);
 
     __afl_cmp_map = (struct cmp_map *)shmat(shm_id, NULL, 0);
-    memset(__afl_cmp_map,0,sizeof(struct cmp_map));
+    //memset(__afl_cmp_map,0,sizeof(struct cmp_map));
     printf("afl_compiler-rt __afl_cmp_map %p\n",__afl_cmp_map);
 #endif
 
