@@ -23,9 +23,9 @@ int cmp_proc_fn(char* buf,int len){
 
     if(buf[0] == 'A' || buf[0] =='B'||buf[0] =='C'){
         printf("hello ,you are in door 1\n");
-        if(buf[1] == 'A' || buf[1] =='B'||buf[1] =='C'){
+        if(buf[1] == 'D' || buf[1] =='X'||buf[1] =='Z'){
             printf("hello ,you are in door 2\n");
-            if(buf[4] == 'A' || buf[4] =='B'||buf[4] =='C')
+            if(buf[4] == ',' || buf[4] =='h'||buf[4] =='+')
                 printf("hello ,you are in door 3\n");
         }
     }

@@ -2437,11 +2437,12 @@ int main(int argc, char **argv_orig, char **envp) {
         
         printf(".");
         fflush(stdout);
-        int64_t begin_wait_fuzz = millis();
+        
         //printf("before sem_wait ping_sem: %llu\n", millis());
         // Wait until ping is ready from client with input for us
         if (sem_wait(ping_sem) == -1)
             FATAL("Failed to wait on ping semaphore");
+        int64_t begin_wait_fuzz = millis();
         FILE* cmp_log_config = fopen("/tmp/cmp_log_config","r");
         if(cmp_log_config == 0){
           FATAL("Failed to open cmp_log_config");
@@ -2562,6 +2563,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         // copies to shared_mem
         //memset(shared_mem_ptr, 0, SHM_SIZE);
+        int64_t send_pong_begin = millis();
         if(cmp_log_flag){
           memcpy(shared_mem_ptr, pong_msg, sizeof(PONG_MSG));
         }else{
