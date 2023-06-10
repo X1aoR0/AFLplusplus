@@ -27,14 +27,14 @@
 
 #include "types.h"
 #include "config.h"
-
+#include <stdio.h>
 /*******************
  * Terminal colors *
  *******************/
-
-#ifndef MESSAGES_TO_STDOUT
-  #define MESSAGES_TO_STDOUT
-#endif
+extern FILE* out_file_fp;
+// #ifndef MESSAGES_TO_STDOUT
+//   #define MESSAGES_TO_STDOUT
+// #endif
 
 #ifdef USE_COLOR
 
@@ -238,6 +238,8 @@ static inline const char *colorfilter(const char *x) {
             SAYF_N, SAYF_1)                                                 \
   (__VA_ARGS__)
 
+
+
 #define SAYF_1(x) MY_SAYF(colorfilter(x))
 #define SAYF_N(x, ...) MY_SAYF(colorfilter(x), __VA_ARGS__)
 
@@ -245,7 +247,7 @@ static inline const char *colorfilter(const char *x) {
 #ifdef MESSAGES_TO_STDOUT
   #define MY_SAYF(x...) printf(x)
 #else
-  #define MY_SAYF(x...) fprintf(stderr, x)
+  #define MY_SAYF(x...) fprintf(out_file_fp, x)
 #endif                                               /* ^MESSAGES_TO_STDOUT */
 
 /* Show a prefixed warning. */

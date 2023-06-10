@@ -1033,6 +1033,7 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
   int64_t begin_fuzz1 = millis();
+  fprintf(out_file_fp,"[*] write_to_testcase len %llu\n",len);
   if (unlikely(len = write_to_testcase(afl, (void **)&out_buf, len, 0)) == 0) {
 
     return 0;

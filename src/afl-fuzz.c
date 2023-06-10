@@ -2327,26 +2327,26 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  cull_queue(afl);
+  //cull_queue(afl);
 
   // ensure we have at least one seed that is not disabled.
   u32 entry, valid_seeds = 0;
   for (entry = 0; entry < afl->queued_items; ++entry)
     if (!afl->queue_buf[entry]->disabled) { ++valid_seeds; }
 
-  if (!afl->pending_not_fuzzed || !valid_seeds) {
+  //if (!afl->pending_not_fuzzed || !valid_seeds) {
 
-  #ifdef __linux__
-    if (afl->fsrv.nyx_mode) {
+  //#ifdef __linux__
+  //  if (afl->fsrv.nyx_mode) {
 
-      afl->fsrv.nyx_handlers->nyx_shutdown(afl->fsrv.nyx_runner);
+  //    afl->fsrv.nyx_handlers->nyx_shutdown(afl->fsrv.nyx_runner);
 
-    }
+  //  }
 
-  #endif
-    FATAL("We need at least one valid input seed that does not crash!");
+  //#endif
+  //  FATAL("We need at least one valid input seed that does not crash!");
 
-  }
+  //}
 
   if (afl->timeout_given == 2) {  // -t ...+ option
 
@@ -2455,7 +2455,7 @@ int main(int argc, char **argv_orig, char **envp) {
         fprintf(out_file_fp,"[*] cmp_log_flag %d\n",  cmp_log_flag);
         if (afl->stop_soon)
             break;
-
+	      fclose(cmp_log_config);
         // Decoding PING message
         PING_MSG_HDR *ping_msg_hdr = (PING_MSG_HDR *)shared_mem_ptr;
         u8 *input = (u8 *)&shared_mem_ptr[sizeof(PING_MSG_HDR)];
@@ -2468,26 +2468,28 @@ int main(int argc, char **argv_orig, char **envp) {
         {
             FATAL("Overflow in received ping message");
         }
+        
         // FILE* input_seed = fopen("input_seed.png","wb");
         // fwrite(input,1,ping_msg_hdr->inputsize,input_seed);
         // fclose(input_seed);
         // //exit(0);
-
-        // u8 *buffer;
-        // FILE* fp =  fopen("input_seed.png","rb");  
-        // fseek(fp, 0, SEEK_END); // 移动文件指针到文件末尾
-        // int fileSize = ftell(fp); // 获取文件大小
-        // rewind(fp); // 移动文件指针回文件开头
-        // buffer = (u8*)malloc(fileSize); // 为读取数据申请内存
-        // fread(buffer, 1, fileSize, fp); // 读取整个文件到 buffer 中
-        // fclose(fp);
+        //-----------------------TEST---------------------
+        u8 *buffer;
+        //FILE* fp =  fopen("/home/zzr/fuzzer-test-suite/libjpeg-turbo-07-2017/build/cov__1__384","rb");  
+        //fseek(fp, 0, SEEK_END); // 移动文件指针到文件末尾
+        //int fileSize = ftell(fp); // 获取文件大小
+        //rewind(fp); // 移动文件指针回文件开头
+        //buffer = (u8*)malloc(fileSize); // 为读取数据申请内存
+        //fread(buffer, 1, fileSize, fp); // 读取整个文件到 buffer 中
+        //fclose(fp);
 
         //test 
-        // common_fuzz_stuff(afl,buffer,fileSize);
+        //common_fuzz_stuff(afl,buffer,fileSize);
         //write out cov
-        // FILE* cov_fp = fopen("cov_result.bin.testforkserver2","wb");
-        // fwrite(afl->fsrv.trace_bits,1,map_size,cov_fp);
-        // fclose(cov_fp);
+        //FILE* cov_fp = fopen("cov_result.bin.testforkserver2","wb");
+        //fwrite(afl->fsrv.trace_bits,1,map_size,cov_fp);
+        //fclose(cov_fp);
+        //-----------------------TEST-END---------------------
         if(cmp_log_flag){
           memset(afl->shm.cmp_map,0,CMP_MAP_SIZE);
         }
@@ -2496,7 +2498,7 @@ int main(int argc, char **argv_orig, char **envp) {
         
         //循环中的fuzz启动
         common_fuzz_stuff(afl, (u8 *)input, ping_msg_hdr->inputsize); // 将input写入文件并以其为参数运行目标程序
-          
+        
         int64_t after_fuzz = millis();
         fprintf(out_file_fp,"[*] common_fuzz_stuff cost %llu\n",  after_fuzz-begin_fuzz);
           //write out cov
@@ -2619,7 +2621,7 @@ int main(int argc, char **argv_orig, char **envp) {
     
     
 
-    cull_queue(afl);
+    //cull_queue(afl);
 
     if (unlikely((!afl->old_seed_selection &&
                   runs_in_current_cycle > afl->queued_items) ||

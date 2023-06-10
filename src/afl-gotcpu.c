@@ -73,7 +73,7 @@
 #endif               /* __linux__ || __FreeBSD__ || __NetBSD__ || __APPLE__ */
 
 /* Get CPU usage in microseconds. */
-
+FILE* out_file_fp = NULL;
 static u64 get_cpu_usage_us(void) {
 
   struct rusage u;

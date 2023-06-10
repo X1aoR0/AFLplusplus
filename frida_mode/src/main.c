@@ -63,7 +63,7 @@ static main_fn_t main_fn = NULL;
 
 
 FILE* out_log_fp = NULL; 
-int plog_on = 0;
+int plog_on = 1;
 // Either log to stdout or to syslog depending on whether we are run in AFL or standalone mode
 void plog(const char *format, ...) {
     //static FILE* fp = open("fuzz.log","w");
@@ -221,7 +221,7 @@ static void afl_print_env(void) {
 
 __attribute__((visibility("default"))) void afl_frida_start(void) {
   if(plog_on){
-    out_log_fp = fopen("cmp.log","a+");
+    out_log_fp = fopen("cmp.log","w");
   }
   
   FOKF(cRED "**********************");
@@ -302,6 +302,12 @@ static int on_main(int argc, char **argv, char **envp) {
     //调用main函数
       if (__afl_cmp_map != NULL){
     plog("[*]memset cmp_map \n");
+      if(plog_on){
+      		fclose(out_log_fp);
+    
+    		out_log_fp = fopen("cmp.log","w");
+  	}
+    
     //memset(__afl_cmp_map,0,1032*65536);
   };
     ret = main_fn(argc, argv, envp);
